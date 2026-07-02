@@ -21,6 +21,10 @@ class TestPercentComplete(unittest.TestCase):
         with self.assertRaises(ValueError):
             percent_complete(6, 5)
 
+    def test_negative_completed_raises(self):
+        with self.assertRaises(ValueError):
+            percent_complete(-1, 5)
+
 
 class TestIsEarned(unittest.TestCase):
     def test_not_earned(self):
