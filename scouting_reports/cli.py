@@ -5,6 +5,7 @@ from scouting_reports.db.connection import get_connection, init_db
 from scouting_reports.ingest.fbref_top import FBrefTopIngestor
 from scouting_reports.ingest.transfermarkt_bulk import TransfermarktBulkIngestor
 from scouting_reports.ingest.understat_ingest import UnderstatIngestor
+from scouting_reports.reports.generator import generate_report
 from scouting_reports.stats.aggregate import flatten_player_season_stats
 
 
@@ -53,6 +54,35 @@ def ingest(competition, season, source):
     click.echo(f"flattened {flat_rows} player-season rows")
 
     conn.close()
+
+
+@cli.command()
+@click.option("--player", required=True, help="Player name (substring match, case-insensitive)")
+@click.option("--competition", required=True, help="Competition id, e.g. ENG1")
+@click.option("--season", required=True, help="Season id, e.g. 2024-2025")
+def report(player, competition, season):
+    """Generate and print a scouting report for a player by name."""
+    conn = get_connection()
+    matches = conn.execute(
+        "SELECT player_id, canonical_name, last_team_hint FROM player WHERE canonical_name LIKE ?",
+        (f"%{player}%",),
+    ).fetchall()
+
+    if not matches:
+        click.echo(f"No player found matching '{player}'.")
+        return
+    if len(matches) > 1:
+        click.echo(f"Multiple players match '{player}', pick one and re-run with an exact/narrower name:")
+        for m in matches:
+            click.echo(f"  - {m['canonical_name']} ({m['last_team_hint']})")
+        return
+
+    try:
+        click.echo(generate_report(conn, matches[0]["player_id"], competition, season))
+    except ValueError as exc:
+        click.echo(str(exc))
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":
