@@ -4,80 +4,81 @@
     <p class="error" style="margin-top:24px;">{{ error }}</p>
     <a class="back-link" href="/">&larr; back to search</a>
 {% else %}
-<div class="card" style="margin-top:24px;">
-    <div style="display:flex; gap:24px; align-items:center; flex-wrap:wrap;">
+<div class="layout-2col" style="margin-top:24px;">
+    <div class="card">
         {% if profile.bio.photo_url %}
         <img src="{{ profile.bio.photo_url }}" alt="{{ profile.player_name }}"
-             style="width:110px; height:110px; border-radius:50%; object-fit:cover; border:3px solid var(--accent);">
+             style="width:100%; aspect-ratio:1; border-radius:8px; object-fit:cover; border:2px solid var(--accent); margin-bottom:18px;">
         {% else %}
-        <div style="width:110px; height:110px; border-radius:50%; background:var(--card-alt); border:3px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:700; color:var(--accent);">
+        <div style="width:100%; aspect-ratio:1; border-radius:8px; background:var(--card-alt); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:3rem; font-weight:700; color:var(--accent); margin-bottom:18px;">
             {{ profile.player_name[0] }}
         </div>
         {% endif %}
-        <div>
-            <h1 style="margin:0 0 8px; font-size:1.8rem; text-transform:uppercase; letter-spacing:-0.5px;">{{ profile.player_name }}</h1>
-            <div style="margin-bottom:8px;">
-                <span class="pill">{{ profile.position or "Unknown" }}</span>
-                <span class="pill">{{ profile.team }}</span>
-                {% if profile.bio.nationality %}<span class="pill">{{ profile.bio.nationality }}</span>{% endif %}
-            </div>
-            <div style="color:var(--muted); font-size:0.9rem;">
-                {{ profile.competition_name }} &middot; {{ profile.season }}
-                {% if profile.bio.age %} &middot; Age {{ profile.bio.age }}{% endif %}
-                {% if profile.bio.height_cm %} &middot; {{ profile.bio.height_cm }}cm{% endif %}
-                {% if profile.bio.preferred_foot %} &middot; {{ profile.bio.preferred_foot | capitalize }}-footed{% endif %}
-            </div>
+
+        <h1 style="margin:0 0 10px; font-size:1.6rem; text-transform:uppercase; letter-spacing:-0.5px; line-height:1.15;">{{ profile.player_name }}</h1>
+        <div style="margin-bottom:12px;">
+            <span class="pill">{{ profile.position or "Unknown" }}</span>
+            <span class="pill">{{ profile.team }}</span>
+            {% if profile.bio.nationality %}<span class="pill">{{ profile.bio.nationality }}</span>{% endif %}
+        </div>
+        <div style="color:var(--muted); font-size:0.85rem; margin-bottom:20px;">
+            {{ profile.competition_name }} &middot; {{ profile.season }}
+            {% if profile.bio.age %}<br>Age {{ profile.bio.age }}{% endif %}
+            {% if profile.bio.height_cm %} &middot; {{ profile.bio.height_cm }}cm{% endif %}
+            {% if profile.bio.preferred_foot %} &middot; {{ profile.bio.preferred_foot | capitalize }}-footed{% endif %}
+        </div>
+
+        <h2 style="margin-top:0;">Player Info</h2>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px 16px; font-size:0.9rem;">
+            <div><strong>Born</strong><br>{{ profile.bio.date_of_birth or "Unknown" }}</div>
+            <div><strong>Contract</strong><br>{{ profile.bio.contract_expires or "Unknown" }}</div>
+            <div><strong>Caps</strong><br>{{ profile.bio.international_caps if profile.bio.international_caps is not none else "Unknown" }}</div>
+            <div><strong>Int'l Goals</strong><br>{{ profile.bio.international_goals if profile.bio.international_goals is not none else "Unknown" }}</div>
+        </div>
+
+        <h2>Data Sources</h2>
+        <p style="color:var(--muted); font-size:0.8rem; margin-top:0;">
+            Click through to see live, current numbers.
+        </p>
+        <div class="source-links" style="display:flex; flex-direction:column; gap:8px;">
+            {% for link in source_links %}
+            <a href="{{ link.url }}" target="_blank" rel="noopener" style="text-align:center;">{{ link.label }} &#8599;</a>
+            {% endfor %}
         </div>
     </div>
 
-    <h2>Player Info</h2>
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:14px 24px;">
-        <div><strong>Date of birth</strong><br>{{ profile.bio.date_of_birth or "Unknown" }}</div>
-        <div><strong>Contract until</strong><br>{{ profile.bio.contract_expires or "Unknown" }}</div>
-        <div><strong>International caps</strong><br>{{ profile.bio.international_caps if profile.bio.international_caps is not none else "Unknown" }}</div>
-        <div><strong>International goals</strong><br>{{ profile.bio.international_goals if profile.bio.international_goals is not none else "Unknown" }}</div>
-    </div>
-
-    <h2>Scout's Summary</h2>
-    {% for title, text in profile.sections.items() %}
-    <p><strong>{{ title }}:</strong> {{ text }}</p>
-    {% endfor %}
-
-    <h2>Full Statistics</h2>
-    <table style="width:100%; border-collapse:collapse;">
-        {% for stat in profile.stats %}
-        <tr style="border-bottom:1px solid var(--border);">
-            <td style="padding:8px 4px; width:38%; color:var(--muted);">{{ stat.label }}</td>
-            <td class="stat-value" style="padding:8px 4px; width:15%; white-space:nowrap;">
-                {% if stat.value is none %}&mdash;
-                {% elif stat.display is string %}{{ stat.display }}
-                {% elif stat.value is number and stat.value != stat.value|int %}{{ "%.2f"|format(stat.value) }}
-                {% else %}{{ stat.value }}
-                {% endif %}
-            </td>
-            <td style="padding:8px 4px;">
-                {% if stat.bar_percentile is not none %}
-                <div style="background:var(--border); border-radius:3px; height:8px; overflow:hidden;">
-                    <div style="background:var(--accent); height:100%; width:{{ (stat.bar_percentile * 100) | round }}%;"></div>
-                </div>
-                {% endif %}
-            </td>
-        </tr>
+    <div class="card">
+        <h2 style="margin-top:0;">Scout's Summary</h2>
+        {% for title, text in profile.sections.items() %}
+        <p><strong>{{ title }}:</strong> {{ text }}</p>
         {% endfor %}
-    </table>
 
-    <h2>Data Sources</h2>
-    <p style="color:var(--muted); font-size:0.85rem; margin-top:0;">
-        This profile is a snapshot from the last ingest. Click through to a source below to see the current, live numbers.
-    </p>
-    <div class="source-links">
-        {% for link in source_links %}
-        <a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }} &#8599;</a>
-        {% endfor %}
+        <h2>Full Statistics</h2>
+        <table style="width:100%; border-collapse:collapse;">
+            {% for stat in profile.stats %}
+            <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:9px 4px; width:34%; color:var(--muted);">{{ stat.label }}</td>
+                <td class="stat-value" style="padding:9px 4px; width:14%; white-space:nowrap;">
+                    {% if stat.value is none %}&mdash;
+                    {% elif stat.display is string %}{{ stat.display }}
+                    {% elif stat.value is number and stat.value != stat.value|int %}{{ "%.2f"|format(stat.value) }}
+                    {% else %}{{ stat.value }}
+                    {% endif %}
+                </td>
+                <td style="padding:9px 4px;">
+                    {% if stat.bar_percentile is not none %}
+                    <div style="background:var(--border); border-radius:3px; height:8px; overflow:hidden;">
+                        <div style="background:var(--accent); height:100%; width:{{ (stat.bar_percentile * 100) | round }}%;"></div>
+                    </div>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <hr>
+        <em>Sources: {{ profile.sources_line }}. Data as of {{ profile.as_of_date }}. {{ profile.tier_caveat }}</em>
     </div>
-
-    <hr>
-    <em>Sources: {{ profile.sources_line }}. Data as of {{ profile.as_of_date }}. {{ profile.tier_caveat }}</em>
 </div>
 <a class="back-link" href="/">&larr; back to search</a>
 {% endif %}

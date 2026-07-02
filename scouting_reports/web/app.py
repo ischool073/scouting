@@ -55,14 +55,34 @@ def _source_links(conn, player_id: int, canonical_name: str) -> list[dict]:
     return links
 
 
+def _summary_stats(conn, competition_id, season_id):
+    if not competition_id:
+        return {}
+    row = conn.execute(
+        """SELECT COUNT(*) as player_count, SUM(goals) as total_goals, MAX(market_value_eur) as top_value
+           FROM player_season_stat_flat WHERE competition_id = ? AND season_id = ? AND minutes IS NOT NULL""",
+        (competition_id, season_id),
+    ).fetchone()
+    source_count = conn.execute("SELECT COUNT(DISTINCT source) as c FROM stats_snapshot").fetchone()["c"]
+    return {
+        "player_count": row["player_count"],
+        "total_goals": row["total_goals"],
+        "top_value_m": round(row["top_value"] / 1_000_000, 1) if row["top_value"] else None,
+        "source_count": source_count,
+    }
+
+
 @app.route("/")
 def index():
     conn = get_connection()
     comp_seasons = _available_competition_seasons(conn)
     default = comp_seasons[0] if comp_seasons else None
     players = _players_for_datalist(conn, default["competition_id"], default["season_id"]) if default else []
+    summary = _summary_stats(conn, default["competition_id"] if default else None, default["season_id"] if default else None)
     conn.close()
-    return render_template("index.html", comp_seasons=comp_seasons, players=players, default=default, active_page="home")
+    return render_template(
+        "index.html", comp_seasons=comp_seasons, players=players, default=default, summary=summary, active_page="home"
+    )
 
 
 @app.route("/players")

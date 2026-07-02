@@ -1,39 +1,60 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="hero">
-    <h1>Scouting<span>Reports</span></h1>
-    <p class="lede">Player scouting data pulled from FBref, Understat, and Transfermarkt &mdash; merged, cross-checked, and turned into a full player profile in one search.</p>
+<div class="hero hero-2col">
+    <div>
+        <h1>Scouting<span>Reports</span></h1>
+        <p class="lede">Player scouting data pulled from FBref, Understat, and Transfermarkt &mdash; merged, cross-checked, and turned into a full player profile in one search.</p>
 
-    <form action="/search" method="get" class="search">
-        <input type="text" name="player" list="player-names" placeholder="Search a player, e.g. Salah" autofocus required>
-        <select name="competition">
-            {% for cs in comp_seasons %}
-            <option value="{{ cs.competition_id }}" {% if default and cs.competition_id == default.competition_id and cs.season_id == default.season_id %}selected{% endif %}>
-                {{ cs.display_name }} ({{ cs.season_id }})
-            </option>
+        <form action="/search" method="get" class="search">
+            <input type="text" name="player" list="player-names" placeholder="Search a player, e.g. Salah" autofocus required>
+            <select name="competition">
+                {% for cs in comp_seasons %}
+                <option value="{{ cs.competition_id }}" {% if default and cs.competition_id == default.competition_id and cs.season_id == default.season_id %}selected{% endif %}>
+                    {{ cs.display_name }} ({{ cs.season_id }})
+                </option>
+                {% endfor %}
+            </select>
+            <input type="hidden" name="season" value="{{ default.season_id if default else '' }}" id="season-field">
+            <button type="submit">Search</button>
+        </form>
+
+        <datalist id="player-names">
+            {% for p in players %}
+            <option value="{{ p.canonical_name }}">{{ p.canonical_name }} ({{ p.last_team_hint }})</option>
             {% endfor %}
-        </select>
-        <input type="hidden" name="season" value="{{ default.season_id if default else '' }}" id="season-field">
-        <button type="submit">Search</button>
-    </form>
+        </datalist>
 
-    <datalist id="player-names">
-        {% for p in players %}
-        <option value="{{ p.canonical_name }}">{{ p.canonical_name }} ({{ p.last_team_hint }})</option>
-        {% endfor %}
-    </datalist>
+        <script>
+            const select = document.querySelector('select[name=competition]');
+            const seasonField = document.getElementById('season-field');
+            select.addEventListener('change', () => {
+                const opt = select.selectedOptions[0].textContent.match(/\(([^)]+)\)/);
+                if (opt) seasonField.value = opt[1];
+            });
+        </script>
 
-    <script>
-        const select = document.querySelector('select[name=competition]');
-        const seasonField = document.getElementById('season-field');
-        select.addEventListener('change', () => {
-            const opt = select.selectedOptions[0].textContent.match(/\(([^)]+)\)/);
-            if (opt) seasonField.value = opt[1];
-        });
-    </script>
+        <p style="color:var(--muted); font-size: 0.9rem;">
+            {{ players|length }} players available &middot; or <a href="/players">browse the full list</a>.
+        </p>
+    </div>
 
-    <p style="color:var(--muted); font-size: 0.9rem;">
-        {{ players|length }} players available &middot; or <a href="/players">browse the full list</a>.
-    </p>
+    <div class="stat-highlight">
+        <div class="item">
+            <div class="num">{{ summary.player_count or "-" }}</div>
+            <div class="lbl">Players Tracked</div>
+        </div>
+        <div class="item">
+            <div class="num">{{ summary.total_goals or "-" }}</div>
+            <div class="lbl">Goals This Season</div>
+        </div>
+        <div class="item">
+            <div class="num">{{ summary.source_count or "-" }}</div>
+            <div class="lbl">Data Sources</div>
+        </div>
+        <div class="item">
+            <div class="num">{{ ("EUR " ~ summary.top_value_m ~ "m") if summary.top_value_m else "-" }}</div>
+            <div class="lbl">Highest Valuation</div>
+        </div>
+    </div>
 </div>
 {% endblock %}
