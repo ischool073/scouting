@@ -69,5 +69,9 @@ def percentile(
 
 _ALLOWED_STAT_COLUMNS = {
     "xg", "xa", "npxg", "goals", "assists", "minutes",
-    "progressive_carries", "progressive_passes", "tackles_won", "market_value_eur",
+    "progressive_carries", "progressive_passes", "tackles_won", "interceptions",
+    "shots", "shots_on_target", "fouls_committed", "fouls_drawn", "crosses",
+    "xg_chain", "xg_buildup", "key_passes",
+    "save_pct", "clean_sheet_pct", "goals_against_90",
+    "market_value_eur",
 }

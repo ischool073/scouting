@@ -10,26 +10,51 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
 from scouting_reports.reports.selectors import (
+    buildup_selection,
     creativity_selection,
+    defensive_selection,
+    discipline_selection,
     finishing_selection,
+    goalkeeping_selection,
     market_value_selection,
+    shot_volume_selection,
 )
-from scouting_reports.stats.percentiles import percentile
+from scouting_reports.stats.percentiles import percentile, position_group
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 TEMPLATE_TEXT = {
     "insufficient_minutes": "Not enough minutes played this season to draw a reliable conclusion for this category.",
     "finishing_no_advanced_stats": "{{goals}} goal(s) recorded, but no expected-goals data is available for this competition tier to assess shot quality.",
-    "finishing_elite": "Elite finishing output: {{npxg}} non-penalty xG against {{goals}} actual goals, {{pct}}th percentile among peers in this competition.",
-    "finishing_above_average": "Above-average finishing: {{npxg}} non-penalty xG, {{pct}}th percentile among peers in this competition.",
-    "finishing_average": "Average finishing output for the position: {{npxg}} non-penalty xG, {{pct}}th percentile.",
-    "finishing_below_average": "Below-average finishing output: {{npxg}} non-penalty xG, {{pct}}th percentile among peers in this competition.",
+    "finishing_elite": "Elite finishing output: {{npxg}} non-penalty xG against {{goals}} actual goals, {{pct}} percentile among peers in this competition.",
+    "finishing_above_average": "Above-average finishing: {{npxg}} non-penalty xG, {{pct}} percentile among peers in this competition.",
+    "finishing_average": "Average finishing output for the position: {{npxg}} non-penalty xG, {{pct}} percentile.",
+    "finishing_below_average": "Below-average finishing output: {{npxg}} non-penalty xG, {{pct}} percentile among peers in this competition.",
     "creativity_no_advanced_stats": "{{assists}} assist(s) recorded, but no expected-assists data is available for this competition tier.",
-    "creativity_elite": "Elite chance creation: {{xa}} xA, {{pct}}th percentile among peers in this competition.",
-    "creativity_above_average": "Above-average chance creation: {{xa}} xA, {{pct}}th percentile.",
-    "creativity_average": "Average chance creation for the position: {{xa}} xA, {{pct}}th percentile.",
-    "creativity_below_average": "Below-average chance creation: {{xa}} xA, {{pct}}th percentile among peers in this competition.",
+    "creativity_elite": "Elite chance creation: {{xa}} xA, {{pct}} percentile among peers in this competition.",
+    "creativity_above_average": "Above-average chance creation: {{xa}} xA, {{pct}} percentile.",
+    "creativity_average": "Average chance creation for the position: {{xa}} xA, {{pct}} percentile.",
+    "creativity_below_average": "Below-average chance creation: {{xa}} xA, {{pct}} percentile among peers in this competition.",
+    "defensive_no_advanced_stats": "No tackle/interception data available for this competition tier.",
+    "defensive_elite": "Elite defensive workrate: {{tackles_won}} tackles won, {{interceptions}} interceptions, {{pct}} percentile among peers.",
+    "defensive_above_average": "Above-average defensive activity: {{tackles_won}} tackles won, {{interceptions}} interceptions, {{pct}} percentile.",
+    "defensive_average": "Average defensive activity for the position: {{tackles_won}} tackles won, {{interceptions}} interceptions, {{pct}} percentile.",
+    "defensive_below_average": "Below-average defensive activity: {{tackles_won}} tackles won, {{interceptions}} interceptions, {{pct}} percentile.",
+    "shot_volume_no_advanced_stats": "No shooting data available for this competition tier.",
+    "shot_volume_known": "{{shots}} shots, {{shots_on_target}} on target ({{accuracy}}% accuracy).",
+    "shot_volume_elite": "High shot-accuracy profile: {{shots}} shots, {{shots_on_target}} on target ({{accuracy}}%), {{pct}} percentile on shots-on-target rate.",
+    "shot_volume_above_average": "Above-average shot accuracy: {{shots}} shots, {{shots_on_target}} on target ({{accuracy}}%), {{pct}} percentile.",
+    "shot_volume_average": "Average shot accuracy for the position: {{shots}} shots, {{shots_on_target}} on target ({{accuracy}}%), {{pct}} percentile.",
+    "shot_volume_below_average": "Below-average shot accuracy: {{shots}} shots, {{shots_on_target}} on target ({{accuracy}}%), {{pct}} percentile.",
+    "discipline_no_advanced_stats": "No foul data available for this competition tier.",
+    "discipline_known": "Committed {{fouls_committed}} fouls and drew {{fouls_drawn}} fouls this season.",
+    "buildup_no_advanced_stats": "{{key_passes}} key pass(es) recorded, but no build-up involvement data (xG chain/buildup) is available for this competition tier.",
+    "buildup_elite": "Heavily involved in build-up play: {{xg_chain}} xG chain, {{xg_buildup}} xG buildup, {{key_passes}} key passes, {{pct}} percentile.",
+    "buildup_above_average": "Above-average build-up involvement: {{xg_chain}} xG chain, {{xg_buildup}} xG buildup, {{key_passes}} key passes, {{pct}} percentile.",
+    "buildup_average": "Average build-up involvement for the position: {{xg_chain}} xG chain, {{xg_buildup}} xG buildup, {{pct}} percentile.",
+    "buildup_below_average": "Below-average build-up involvement: {{xg_chain}} xG chain, {{xg_buildup}} xG buildup, {{pct}} percentile.",
+    "goalkeeping_no_advanced_stats": "No goalkeeping data available for this competition tier.",
+    "goalkeeping_known": "{{save_pct}}% save rate, {{clean_sheet_pct}}% clean sheet rate, {{goals_against_90}} goals conceded per 90.",
     "market_value_unknown": "No market valuation available.",
     "market_value_known": "Estimated market value: EUR {{value_millions}}m (Transfermarkt).",
 }
@@ -42,10 +67,19 @@ def _render_selection(selection) -> str:
     return text
 
 
+def _combined_percentile(conn, player_id, season_id, competition_id, columns) -> float | None:
+    values = [percentile(conn, player_id, season_id, competition_id, c) for c in columns]
+    values = [v for v in values if v is not None]
+    return sum(values) / len(values) if values else None
+
+
 def generate_report(conn: sqlite3.Connection, player_id: int, competition_id: str, season_id: str) -> str:
     row = conn.execute(
         """SELECT p.canonical_name, p.primary_position, p.last_team_hint,
-                  f.minutes, f.goals, f.assists, f.xg, f.xa, f.npxg, f.market_value_eur
+                  f.minutes, f.goals, f.assists, f.xg, f.xa, f.npxg, f.market_value_eur,
+                  f.tackles_won, f.interceptions, f.shots, f.shots_on_target,
+                  f.fouls_committed, f.fouls_drawn, f.xg_chain, f.xg_buildup, f.key_passes,
+                  f.save_pct, f.clean_sheet_pct, f.goals_against_90
            FROM player p LEFT JOIN player_season_stat_flat f
              ON f.player_id = p.player_id AND f.season_id = ? AND f.competition_id = ?
            WHERE p.player_id = ?""",
@@ -58,12 +92,32 @@ def generate_report(conn: sqlite3.Connection, player_id: int, competition_id: st
         "SELECT display_name FROM competition WHERE competition_id = ?", (competition_id,)
     ).fetchone()
 
-    npxg_pct = percentile(conn, player_id, season_id, competition_id, "npxg")
-    xa_pct = percentile(conn, player_id, season_id, competition_id, "xa")
+    is_goalkeeper = position_group(row["primary_position"]) == "Goalkeeper"
 
-    finishing = finishing_selection(row["goals"], row["npxg"], npxg_pct, row["minutes"])
-    creativity = creativity_selection(row["assists"], row["xa"], xa_pct, row["minutes"])
-    market_value = market_value_selection(row["market_value_eur"])
+    sections = {}
+    if is_goalkeeper:
+        sections["Goalkeeping"] = _render_selection(
+            goalkeeping_selection(row["save_pct"], row["clean_sheet_pct"], row["goals_against_90"], row["minutes"])
+        )
+    else:
+        npxg_pct = percentile(conn, player_id, season_id, competition_id, "npxg")
+        xa_pct = percentile(conn, player_id, season_id, competition_id, "xa")
+        defensive_pct = _combined_percentile(conn, player_id, season_id, competition_id, ["tackles_won", "interceptions"])
+        sot_pct = percentile(conn, player_id, season_id, competition_id, "shots_on_target")
+        xg_chain_pct = percentile(conn, player_id, season_id, competition_id, "xg_chain")
+
+        sections["Finishing"] = _render_selection(finishing_selection(row["goals"], row["npxg"], npxg_pct, row["minutes"]))
+        sections["Creativity"] = _render_selection(creativity_selection(row["assists"], row["xa"], xa_pct, row["minutes"]))
+        sections["Shooting"] = _render_selection(shot_volume_selection(row["shots"], row["shots_on_target"], sot_pct, row["minutes"]))
+        sections["Defensive Actions"] = _render_selection(
+            defensive_selection(row["tackles_won"], row["interceptions"], defensive_pct, row["minutes"])
+        )
+        sections["Build-up Play"] = _render_selection(
+            buildup_selection(row["xg_chain"], row["xg_buildup"], row["key_passes"], xg_chain_pct, row["minutes"])
+        )
+        sections["Discipline"] = _render_selection(discipline_selection(row["fouls_committed"], row["fouls_drawn"], row["minutes"]))
+
+    sections["Market Value"] = _render_selection(market_value_selection(row["market_value_eur"]))
 
     sources = conn.execute(
         "SELECT DISTINCT source, MAX(fetched_at) as latest FROM stats_snapshot WHERE player_id = ? GROUP BY source",
@@ -73,7 +127,7 @@ def generate_report(conn: sqlite3.Connection, player_id: int, competition_id: st
 
     tier = conn.execute("SELECT tier FROM competition WHERE competition_id = ?", (competition_id,)).fetchone()["tier"]
     tier_caveat = (
-        "Advanced metrics (xG/xA) are unavailable for this competition tier; only basic stats and market value are shown."
+        "Advanced metrics (xG/xA and beyond) are unavailable for this competition tier; only basic stats and market value are shown."
         if tier > 1 and row["xg"] is None
         else ""
     )
@@ -89,9 +143,7 @@ def generate_report(conn: sqlite3.Connection, player_id: int, competition_id: st
         minutes=row["minutes"],
         goals=row["goals"],
         assists=row["assists"],
-        finishing_text=_render_selection(finishing),
-        creativity_text=_render_selection(creativity),
-        market_value_text=_render_selection(market_value),
+        sections=sections,
         sources_line=sources_line,
         as_of_date=datetime.now(timezone.utc).date().isoformat(),
         tier_caveat=tier_caveat,
