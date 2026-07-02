@@ -34,6 +34,27 @@ def _players_for_datalist(conn, competition_id, season_id):
     ).fetchall()
 
 
+def _source_links(conn, player_id: int, canonical_name: str) -> list[dict]:
+    """Deep links back to the original data source for this player, so the underlying
+    numbers can always be checked against the live, up-to-date source page."""
+    refs = {r["source"]: r["source_player_id"] for r in conn.execute(
+        "SELECT source, source_player_id FROM player_source_ref WHERE player_id = ?", (player_id,)
+    ).fetchall()}
+
+    links = []
+    if "understat" in refs:
+        links.append({"label": "Understat", "url": f"https://understat.com/player/{refs['understat']}"})
+    if "transfermarkt" in refs:
+        links.append({"label": "Transfermarkt", "url": f"https://www.transfermarkt.com/-/profil/spieler/{refs['transfermarkt']}"})
+    if "fbref" in refs:
+        # FBref's own player-page ID isn't captured by our current ingestion (only a
+        # name+team composite key is), so this links to FBref's search rather than a
+        # direct profile page until that's fixed.
+        from urllib.parse import quote
+        links.append({"label": "FBref (search)", "url": f"https://fbref.com/en/search/search.fcgi?search={quote(canonical_name)}"})
+    return links
+
+
 @app.route("/")
 def index():
     conn = get_connection()
@@ -41,7 +62,33 @@ def index():
     default = comp_seasons[0] if comp_seasons else None
     players = _players_for_datalist(conn, default["competition_id"], default["season_id"]) if default else []
     conn.close()
-    return render_template("index.html", comp_seasons=comp_seasons, players=players, default=default)
+    return render_template("index.html", comp_seasons=comp_seasons, players=players, default=default, active_page="home")
+
+
+@app.route("/players")
+def players_list():
+    conn = get_connection()
+    comp_seasons = _available_competition_seasons(conn)
+    default = comp_seasons[0] if comp_seasons else None
+    rows = []
+    if default:
+        rows = conn.execute(
+            """SELECT p.player_id, p.canonical_name, p.last_team_hint, p.primary_position,
+                      f.minutes, f.goals, f.assists, f.market_value_eur
+               FROM player p JOIN player_season_stat_flat f ON f.player_id = p.player_id
+               WHERE f.competition_id = ? AND f.season_id = ? AND f.minutes IS NOT NULL
+               ORDER BY f.minutes DESC""",
+            (default["competition_id"], default["season_id"]),
+        ).fetchall()
+    conn.close()
+    return render_template(
+        "players.html",
+        players=rows,
+        competition_id=default["competition_id"] if default else "",
+        season_id=default["season_id"] if default else "",
+        competition_name=default["display_name"] if default else "",
+        active_page="players",
+    )
 
 
 @app.route("/search")
@@ -81,13 +128,15 @@ def report(player_id, competition_id=None, season_id=None):
     conn = get_connection()
     try:
         profile = build_player_profile(conn, player_id, competition_id, season_id)
+        source_links = _source_links(conn, player_id, profile["player_name"])
         error = None
     except ValueError as exc:
         profile = None
+        source_links = []
         error = str(exc)
     conn.close()
 
-    return render_template("profile.html", profile=profile, error=error)
+    return render_template("profile.html", profile=profile, source_links=source_links, error=error)
 
 
 def main():
