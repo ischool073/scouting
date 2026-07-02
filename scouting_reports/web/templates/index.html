@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<form action="/search" method="get">
+<form action="/search" method="get" class="search">
     <input type="text" name="player" list="player-names" placeholder="Search a player, e.g. Salah" autofocus required>
     <select name="competition">
         {% for cs in comp_seasons %}
@@ -29,7 +29,7 @@
     });
 </script>
 
-<p style="color:#9aa0a6; font-size: 0.9rem;">
+<p style="color:#6b6b70; font-size: 0.9rem;">
     {{ players|length }} players available for the selected competition/season.
 </p>
 {% endblock %}

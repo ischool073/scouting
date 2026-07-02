@@ -46,6 +46,29 @@ def flatten_player_season_stats(conn: sqlite3.Connection, competition_id: str, s
                 (position.split(",")[0].strip(), player_id),
             )
 
+        if transfermarkt:
+            conn.execute(
+                """UPDATE player SET
+                     nationality = COALESCE(nationality, ?),
+                     height_cm = COALESCE(height_cm, ?),
+                     preferred_foot = COALESCE(preferred_foot, ?),
+                     photo_url = COALESCE(photo_url, ?),
+                     contract_expires = COALESCE(contract_expires, ?),
+                     international_caps = COALESCE(international_caps, ?),
+                     international_goals = COALESCE(international_goals, ?)
+                   WHERE player_id = ?""",
+                (
+                    transfermarkt.get("country_of_citizenship"),
+                    transfermarkt.get("height_in_cm"),
+                    transfermarkt.get("foot"),
+                    transfermarkt.get("image_url"),
+                    transfermarkt.get("contract_expiration_date"),
+                    transfermarkt.get("international_caps"),
+                    transfermarkt.get("international_goals"),
+                    player_id,
+                ),
+            )
+
         minutes = (fbref or {}).get("Playing Time_Min")
         goals = (fbref or {}).get("Performance_Gls")
         assists = (fbref or {}).get("Performance_Ast")

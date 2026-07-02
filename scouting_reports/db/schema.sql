@@ -49,6 +49,12 @@ CREATE TABLE IF NOT EXISTS player (
     nationality TEXT,
     primary_position TEXT,
     last_team_hint TEXT,                -- most recently seen team name (raw string, any source); cheap disambiguation signal
+    height_cm INTEGER,
+    preferred_foot TEXT,
+    photo_url TEXT,
+    contract_expires DATE,
+    international_caps INTEGER,
+    international_goals INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     notes TEXT
 );

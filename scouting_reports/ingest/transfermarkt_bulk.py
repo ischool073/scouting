@@ -32,7 +32,9 @@ class TransfermarktBulkIngestor(SourceIngestor):
         try:
             return con.execute(
                 """SELECT player_id, name, date_of_birth, position, current_club_name,
-                          market_value_in_eur, highest_market_value_in_eur
+                          market_value_in_eur, highest_market_value_in_eur,
+                          country_of_citizenship, height_in_cm, foot, image_url,
+                          contract_expiration_date, international_caps, international_goals
                    FROM players
                    WHERE current_club_domestic_competition_id = ?""",
                 [self.transfermarkt_competition_id],
@@ -48,5 +50,7 @@ class TransfermarktBulkIngestor(SourceIngestor):
         out["source_player_id"] = out["player_id"].astype(str)
         dob = pd.to_datetime(out["date_of_birth"]).dt.strftime("%Y-%m-%d")
         out["date_of_birth"] = dob.where(pd.notna(dob), None)
+        contract = pd.to_datetime(out["contract_expiration_date"]).dt.strftime("%Y-%m-%d")
+        out["contract_expiration_date"] = contract.where(pd.notna(contract), None)
         out["stat_type"] = "market_value"
         return out

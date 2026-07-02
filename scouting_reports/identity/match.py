@@ -71,6 +71,7 @@ def resolve_player_id(
     ).fetchone()
     if existing is not None:
         _touch_team_hint(conn, existing["player_id"], team_hint)
+        _touch_date_of_birth(conn, existing["player_id"], date_of_birth)
         return existing["player_id"]
 
     candidates = conn.execute("SELECT player_id, canonical_name, date_of_birth, last_team_hint FROM player").fetchall()
@@ -81,6 +82,7 @@ def resolve_player_id(
             if cand["date_of_birth"] == date_of_birth and normalize_name(cand["canonical_name"]) == normalize_name(source_name):
                 _ensure_source_ref(conn, cand["player_id"], source, source_player_id, source_name, 1.0, "exact_dob_name")
                 _touch_team_hint(conn, cand["player_id"], team_hint)
+                _touch_date_of_birth(conn, cand["player_id"], date_of_birth)
                 return cand["player_id"]
 
     # 3. Fuzzy match: name + team.
@@ -103,6 +105,7 @@ def resolve_player_id(
     if best_candidate is not None and best_score >= AUTO_ACCEPT_THRESHOLD:
         _ensure_source_ref(conn, best_candidate["player_id"], source, source_player_id, source_name, best_score, "fuzzy_name_team")
         _touch_team_hint(conn, best_candidate["player_id"], team_hint)
+        _touch_date_of_birth(conn, best_candidate["player_id"], date_of_birth)
         return best_candidate["player_id"]
 
     if best_candidate is not None and best_score >= REVIEW_QUEUE_THRESHOLD:
@@ -134,6 +137,15 @@ def _ensure_source_ref(conn, player_id: int, source: str, source_player_id: str,
 def _touch_team_hint(conn, player_id: int, team_hint: Optional[str]) -> None:
     if team_hint:
         conn.execute("UPDATE player SET last_team_hint = ? WHERE player_id = ?", (team_hint, player_id))
+
+
+def _touch_date_of_birth(conn, player_id: int, date_of_birth: Optional[str]) -> None:
+    # Backfill only -- never overwrite a DOB a prior source already established.
+    if date_of_birth:
+        conn.execute(
+            "UPDATE player SET date_of_birth = ? WHERE player_id = ? AND date_of_birth IS NULL",
+            (date_of_birth, player_id),
+        )
 
 
 def _enqueue_review(conn, source, source_player_id, source_name, date_of_birth, team_hint, candidate_player_id, candidate_score, status="pending") -> None:

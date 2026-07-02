@@ -5,11 +5,10 @@ Run with:
     .venv\\Scripts\\python.exe -m scouting_reports.web.app
 Then open http://127.0.0.1:5000 in a browser.
 """
-import markdown as markdown_lib
 from flask import Flask, render_template, request
 
 from scouting_reports.db.connection import get_connection
-from scouting_reports.reports.generator import generate_report
+from scouting_reports.reports.generator import build_player_profile
 
 app = Flask(__name__)
 
@@ -81,15 +80,14 @@ def report(player_id, competition_id=None, season_id=None):
 
     conn = get_connection()
     try:
-        report_markdown = generate_report(conn, player_id, competition_id, season_id)
+        profile = build_player_profile(conn, player_id, competition_id, season_id)
         error = None
     except ValueError as exc:
-        report_markdown = None
+        profile = None
         error = str(exc)
     conn.close()
 
-    report_html = markdown_lib.markdown(report_markdown) if report_markdown else None
-    return render_template("report.html", report_html=report_html, error=error)
+    return render_template("profile.html", profile=profile, error=error)
 
 
 def main():

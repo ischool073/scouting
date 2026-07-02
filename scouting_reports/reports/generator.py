@@ -1,11 +1,15 @@
 """Orchestrates report generation: pull a player's merged profile, compute
-percentiles, run the deterministic selectors, and render the Jinja2 template.
-Refuses to generate a report for a player with zero resolved stats -- never
+percentiles, run the deterministic selectors, and build a structured profile
+that both the CLI (markdown) and web app (rich HTML) render from -- so both
+surfaces read from a single source of truth, not duplicated query logic.
+
+Refuses to build a profile for a player with zero resolved stats -- never
 renders a template against empty/placeholder data.
 """
 import sqlite3
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -59,6 +63,33 @@ TEMPLATE_TEXT = {
     "market_value_known": "Estimated market value: EUR {{value_millions}}m (Transfermarkt).",
 }
 
+# Every numeric field we currently store per player-season, for the "show everything" stats
+# table. (label, column, percentile_column_or_None, lower_is_better)
+# percentile_column is None where a percentile cohort wouldn't be meaningful (counts that are
+# inherently cumulative/contextual rather than a "quality" signal, e.g. raw minutes).
+STAT_FIELDS = [
+    ("Minutes Played", "minutes", None, False),
+    ("Goals", "goals", None, False),
+    ("Assists", "assists", None, False),
+    ("Expected Goals (xG)", "xg", "xg", False),
+    ("Non-Penalty xG", "npxg", "npxg", False),
+    ("Expected Assists (xA)", "xa", "xa", False),
+    ("Shots", "shots", "shots", False),
+    ("Shots on Target", "shots_on_target", "shots_on_target", False),
+    ("Key Passes", "key_passes", "key_passes", False),
+    ("xG Chain", "xg_chain", "xg_chain", False),
+    ("xG Buildup", "xg_buildup", "xg_buildup", False),
+    ("Tackles Won", "tackles_won", "tackles_won", False),
+    ("Interceptions", "interceptions", "interceptions", False),
+    ("Crosses", "crosses", "crosses", False),
+    ("Fouls Committed", "fouls_committed", "fouls_committed", True),
+    ("Fouls Drawn", "fouls_drawn", "fouls_drawn", False),
+    ("Save %", "save_pct", "save_pct", False),
+    ("Clean Sheet %", "clean_sheet_pct", "clean_sheet_pct", False),
+    ("Goals Conceded per 90", "goals_against_90", "goals_against_90", True),
+    ("Market Value (EUR)", "market_value_eur", "market_value_eur", False),
+]
+
 
 def _render_selection(selection) -> str:
     text = TEMPLATE_TEXT[selection.template_key]
@@ -67,17 +98,30 @@ def _render_selection(selection) -> str:
     return text
 
 
-def _combined_percentile(conn, player_id, season_id, competition_id, columns) -> float | None:
+def _combined_percentile(conn, player_id, season_id, competition_id, columns) -> Optional[float]:
     values = [percentile(conn, player_id, season_id, competition_id, c) for c in columns]
     values = [v for v in values if v is not None]
     return sum(values) / len(values) if values else None
 
 
-def generate_report(conn: sqlite3.Connection, player_id: int, competition_id: str, season_id: str) -> str:
+def _age(date_of_birth: Optional[str]) -> Optional[int]:
+    if not date_of_birth:
+        return None
+    dob = date.fromisoformat(date_of_birth)
+    today = date.today()
+    return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+
+def build_player_profile(conn: sqlite3.Connection, player_id: int, competition_id: str, season_id: str) -> dict:
+    """Returns a structured dict with bio info, every stored stat (+ percentile where
+    meaningful), and the deterministic narrative sections -- the single source of truth
+    both the CLI markdown report and the web profile page render from."""
     row = conn.execute(
-        """SELECT p.canonical_name, p.primary_position, p.last_team_hint,
+        """SELECT p.canonical_name, p.primary_position, p.last_team_hint, p.date_of_birth,
+                  p.nationality, p.height_cm, p.preferred_foot, p.photo_url,
+                  p.contract_expires, p.international_caps, p.international_goals,
                   f.minutes, f.goals, f.assists, f.xg, f.xa, f.npxg, f.market_value_eur,
-                  f.tackles_won, f.interceptions, f.shots, f.shots_on_target,
+                  f.tackles_won, f.interceptions, f.shots, f.shots_on_target, f.crosses,
                   f.fouls_committed, f.fouls_drawn, f.xg_chain, f.xg_buildup, f.key_passes,
                   f.save_pct, f.clean_sheet_pct, f.goals_against_90
            FROM player p LEFT JOIN player_season_stat_flat f
@@ -89,7 +133,7 @@ def generate_report(conn: sqlite3.Connection, player_id: int, competition_id: st
         raise ValueError(f"No resolved stats for player_id={player_id} in {competition_id}/{season_id}; refusing to generate an empty report")
 
     competition = conn.execute(
-        "SELECT display_name FROM competition WHERE competition_id = ?", (competition_id,)
+        "SELECT display_name, tier FROM competition WHERE competition_id = ?", (competition_id,)
     ).fetchone()
 
     is_goalkeeper = position_group(row["primary_position"]) == "Goalkeeper"
@@ -119,32 +163,58 @@ def generate_report(conn: sqlite3.Connection, player_id: int, competition_id: st
 
     sections["Market Value"] = _render_selection(market_value_selection(row["market_value_eur"]))
 
+    stats = []
+    for label, column, pct_column, lower_is_better in STAT_FIELDS:
+        value = row[column]
+        pct = percentile(conn, player_id, season_id, competition_id, pct_column) if pct_column and value is not None else None
+        bar_pct = (1 - pct) if (pct is not None and lower_is_better) else pct
+        display = f"EUR {value / 1_000_000:.1f}m" if column == "market_value_eur" and value is not None else value
+        stats.append({"label": label, "value": value, "display": display, "percentile": pct, "bar_percentile": bar_pct})
+
     sources = conn.execute(
         "SELECT DISTINCT source, MAX(fetched_at) as latest FROM stats_snapshot WHERE player_id = ? GROUP BY source",
         (player_id,),
     ).fetchall()
     sources_line = "; ".join(f"{r['source']} (as of {r['latest'][:10]})" for r in sources)
 
-    tier = conn.execute("SELECT tier FROM competition WHERE competition_id = ?", (competition_id,)).fetchone()["tier"]
     tier_caveat = (
         "Advanced metrics (xG/xA and beyond) are unavailable for this competition tier; only basic stats and market value are shown."
-        if tier > 1 and row["xg"] is None
+        if competition and competition["tier"] > 1 and row["xg"] is None
         else ""
     )
 
+    return {
+        "player_name": row["canonical_name"],
+        "team": row["last_team_hint"] or "Unknown",
+        "position": row["primary_position"],
+        "position_group": position_group(row["primary_position"]),
+        "competition_name": competition["display_name"] if competition else competition_id,
+        "season": season_id,
+        "minutes": row["minutes"],
+        "goals": row["goals"],
+        "assists": row["assists"],
+        "bio": {
+            "date_of_birth": row["date_of_birth"],
+            "age": _age(row["date_of_birth"]),
+            "nationality": row["nationality"],
+            "height_cm": row["height_cm"],
+            "preferred_foot": row["preferred_foot"],
+            "photo_url": row["photo_url"],
+            "contract_expires": row["contract_expires"],
+            "international_caps": row["international_caps"],
+            "international_goals": row["international_goals"],
+        },
+        "sections": sections,
+        "stats": stats,
+        "sources_line": sources_line,
+        "as_of_date": datetime.now(timezone.utc).date().isoformat(),
+        "tier_caveat": tier_caveat,
+    }
+
+
+def generate_report(conn: sqlite3.Connection, player_id: int, competition_id: str, season_id: str) -> str:
+    """CLI-facing: renders the plain-text/markdown report."""
+    profile = build_player_profile(conn, player_id, competition_id, season_id)
     env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)))
     template = env.get_template("report.md.j2")
-    return template.render(
-        player_name=row["canonical_name"],
-        team=row["last_team_hint"] or "Unknown",
-        position=row["primary_position"],
-        competition_name=competition["display_name"] if competition else competition_id,
-        season=season_id,
-        minutes=row["minutes"],
-        goals=row["goals"],
-        assists=row["assists"],
-        sections=sections,
-        sources_line=sources_line,
-        as_of_date=datetime.now(timezone.utc).date().isoformat(),
-        tier_caveat=tier_caveat,
-    )
+    return template.render(**profile)
