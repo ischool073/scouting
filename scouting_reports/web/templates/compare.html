@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="hero" style="padding-bottom:16px;">
+    <h1>Compare <span>Players</span></h1>
+    <p class="lede">Pick two players from the same competition/season to see them side by side.</p>
+</div>
+
+<form action="/compare" method="get" class="search">
+    <input type="text" name="player_a" list="player-names" placeholder="Player A, e.g. Salah" value="{{ name_a }}" required>
+    <input type="text" name="player_b" list="player-names" placeholder="Player B, e.g. Haaland" value="{{ name_b }}" required>
+    <input type="hidden" name="competition" value="{{ competition_id }}">
+    <input type="hidden" name="season" value="{{ season_id }}">
+    <button type="submit">Compare</button>
+</form>
+<datalist id="player-names">
+    {% for p in players %}
+    <option value="{{ p.canonical_name }}">{{ p.canonical_name }} ({{ p.last_team_hint }})</option>
+    {% endfor %}
+</datalist>
+
+{% if error %}
+<p class="error">{{ error }}</p>
+{% endif %}
+
+{% if profile_a and profile_b %}
+<div class="card" style="margin-top:8px;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:32px;">
+        <div style="text-align:center;">
+            <h2 style="margin-top:0;">{{ profile_a.player_name }}</h2>
+            <div style="color:var(--muted); font-size:0.85rem; margin-bottom:12px;">{{ profile_a.position }} &middot; {{ profile_a.team }}</div>
+            {% if profile_a.radar_svg %}<div style="max-width:280px; margin:0 auto;">{{ profile_a.radar_svg | safe }}</div>{% endif %}
+        </div>
+        <div style="text-align:center;">
+            <h2 style="margin-top:0;">{{ profile_b.player_name }}</h2>
+            <div style="color:var(--muted); font-size:0.85rem; margin-bottom:12px;">{{ profile_b.position }} &middot; {{ profile_b.team }}</div>
+            {% if profile_b.radar_svg %}<div style="max-width:280px; margin:0 auto;">{{ profile_b.radar_svg | safe }}</div>{% endif %}
+        </div>
+    </div>
+
+    <h2>Head-to-Head Statistics</h2>
+    <table style="width:100%; border-collapse:collapse;">
+        <thead>
+            <tr>
+                <th style="text-align:right; padding:8px; width:30%; color:var(--muted); font-size:0.85rem;">{{ profile_a.player_name }}</th>
+                <th style="text-align:center; padding:8px; width:40%; color:var(--muted); font-size:0.75rem; text-transform:uppercase;">Metric</th>
+                <th style="text-align:left; padding:8px; width:30%; color:var(--muted); font-size:0.85rem;">{{ profile_b.player_name }}</th>
+            </tr>
+        </thead>
+        {% for stat_a, stat_b in stat_pairs %}
+        <tr style="border-top:1px solid var(--border);">
+            <td class="stat-value" style="text-align:right; padding:9px 8px;
+                {% if stat_a.bar_percentile is not none and stat_b.bar_percentile is not none and stat_a.bar_percentile > stat_b.bar_percentile %}color:var(--accent);{% endif %}">
+                {{ stat_a.display if stat_a.display is not none else "&mdash;" | safe }}
+            </td>
+            <td style="text-align:center; padding:9px 8px; color:var(--muted); font-size:0.85rem;">{{ stat_a.label }}</td>
+            <td class="stat-value" style="text-align:left; padding:9px 8px;
+                {% if stat_a.bar_percentile is not none and stat_b.bar_percentile is not none and stat_b.bar_percentile > stat_a.bar_percentile %}color:var(--accent);{% endif %}">
+                {{ stat_b.display if stat_b.display is not none else "&mdash;" | safe }}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+{% endblock %}

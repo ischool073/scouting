@@ -45,10 +45,23 @@
             <a href="{{ link.url }}" target="_blank" rel="noopener" style="text-align:center;">{{ link.label }} &#8599;</a>
             {% endfor %}
         </div>
+
+        <a href="/compare?player_a={{ profile.player_name | urlencode }}&competition={{ request.args.get('competition', '') }}&season={{ profile.season }}"
+           style="display:block; text-align:center; margin-top:18px; padding:10px; border:1px solid var(--accent); border-radius:4px; color:var(--accent); font-weight:700; text-transform:uppercase; font-size:0.8rem; letter-spacing:0.4px;">
+           Compare vs. Another Player
+        </a>
     </div>
 
     <div class="card">
-        <h2 style="margin-top:0;">Scout's Summary</h2>
+        {% if profile.radar_svg %}
+        <h2 style="margin-top:0;">Percentile Radar</h2>
+        <p style="color:var(--muted); font-size:0.8rem; margin-top:0;">
+            Percentile rank vs. {{ profile.position_group }}s in {{ profile.competition_name }}, {{ profile.season }}.
+        </p>
+        <div style="max-width:340px; margin:0 auto 8px;">{{ profile.radar_svg | safe }}</div>
+        {% endif %}
+
+        <h2 {% if not profile.radar_svg %}style="margin-top:0;"{% endif %}>Scout's Summary</h2>
         {% for title, text in profile.sections.items() %}
         <p><strong>{{ title }}:</strong> {{ text }}</p>
         {% endfor %}
@@ -58,13 +71,7 @@
             {% for stat in profile.stats %}
             <tr style="border-bottom:1px solid var(--border);">
                 <td style="padding:9px 4px; width:34%; color:var(--muted);">{{ stat.label }}</td>
-                <td class="stat-value" style="padding:9px 4px; width:14%; white-space:nowrap;">
-                    {% if stat.value is none %}&mdash;
-                    {% elif stat.display is string %}{{ stat.display }}
-                    {% elif stat.value is number and stat.value != stat.value|int %}{{ "%.2f"|format(stat.value) }}
-                    {% else %}{{ stat.value }}
-                    {% endif %}
-                </td>
+                <td class="stat-value" style="padding:9px 4px; width:14%; white-space:nowrap;">{{ stat.display if stat.display is not none else "&mdash;" | safe }}</td>
                 <td style="padding:9px 4px;">
                     {% if stat.bar_percentile is not none %}
                     <div style="background:var(--border); border-radius:3px; height:8px; overflow:hidden;">

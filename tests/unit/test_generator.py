@@ -65,6 +65,31 @@ def test_build_profile_includes_bio_and_full_stats(conn):
     assert stat_labels["Goals"]["value"] == 5
     assert stat_labels["Market Value (EUR)"]["display"] == "EUR 10.0m"
 
+    # outfield players get a 5-axis radar (Finishing/Creativity/Shooting/Defending/Build-up)
+    assert len(profile["radar"]) == 5
+    assert profile["radar_svg"].startswith("<svg")
+
+
+def test_goalkeeper_gets_three_axis_radar_not_outfield_sections(conn):
+    cur = conn.execute(
+        "INSERT INTO player (canonical_name, primary_position) VALUES ('Test Keeper', 'GK')"
+    )
+    player_id = cur.lastrowid
+    conn.execute(
+        """INSERT INTO player_season_stat_flat
+           (player_id, season_id, competition_id, minutes, save_pct, clean_sheet_pct, goals_against_90)
+           VALUES (?, '2024-2025', 'ENG1', 2000, 71.5, 34.0, 0.9)""",
+        (player_id,),
+    )
+    conn.commit()
+
+    profile = build_player_profile(conn, player_id, "ENG1", "2024-2025")
+
+    assert len(profile["radar"]) == 3
+    assert {a["label"] for a in profile["radar"]} == {"Shot Stopping", "Clean Sheets", "Goals Prevented"}
+    assert "Finishing" not in profile["sections"]
+    assert "Goalkeeping" in profile["sections"]
+
 
 def test_fouls_committed_bar_percentile_is_inverted(conn):
     # Lower fouls should map to a HIGHER bar_percentile (fewer fouls = better discipline),

@@ -13,6 +13,7 @@ from typing import Optional
 
 from jinja2 import Environment, FileSystemLoader
 
+from scouting_reports.reports.radar import build_radar_svg
 from scouting_reports.reports.selectors import (
     buildup_selection,
     creativity_selection,
@@ -104,6 +105,18 @@ def _combined_percentile(conn, player_id, season_id, competition_id, columns) ->
     return sum(values) / len(values) if values else None
 
 
+def _format_stat_value(column: str, value) -> Optional[str]:
+    """Always returns a ready-to-display string (or None) -- the single place that decides
+    how a stat value looks, so templates never need their own type-sniffing/rounding logic."""
+    if value is None:
+        return None
+    if column == "market_value_eur":
+        return f"EUR {value / 1_000_000:.1f}m"
+    if isinstance(value, float):
+        return f"{value:.2f}"
+    return str(value)
+
+
 def _age(date_of_birth: Optional[str]) -> Optional[int]:
     if not date_of_birth:
         return None
@@ -139,10 +152,19 @@ def build_player_profile(conn: sqlite3.Connection, player_id: int, competition_i
     is_goalkeeper = position_group(row["primary_position"]) == "Goalkeeper"
 
     sections = {}
+    radar = []
     if is_goalkeeper:
         sections["Goalkeeping"] = _render_selection(
             goalkeeping_selection(row["save_pct"], row["clean_sheet_pct"], row["goals_against_90"], row["minutes"])
         )
+        save_pct_pct = percentile(conn, player_id, season_id, competition_id, "save_pct")
+        cs_pct_pct = percentile(conn, player_id, season_id, competition_id, "clean_sheet_pct")
+        ga90_pct = percentile(conn, player_id, season_id, competition_id, "goals_against_90")
+        radar = [
+            {"label": "Shot Stopping", "percentile": save_pct_pct},
+            {"label": "Clean Sheets", "percentile": cs_pct_pct},
+            {"label": "Goals Prevented", "percentile": (1 - ga90_pct) if ga90_pct is not None else None},
+        ]
     else:
         npxg_pct = percentile(conn, player_id, season_id, competition_id, "npxg")
         xa_pct = percentile(conn, player_id, season_id, competition_id, "xa")
@@ -161,6 +183,14 @@ def build_player_profile(conn: sqlite3.Connection, player_id: int, competition_i
         )
         sections["Discipline"] = _render_selection(discipline_selection(row["fouls_committed"], row["fouls_drawn"], row["minutes"]))
 
+        radar = [
+            {"label": "Finishing", "percentile": npxg_pct},
+            {"label": "Creativity", "percentile": xa_pct},
+            {"label": "Shooting", "percentile": sot_pct},
+            {"label": "Defending", "percentile": defensive_pct},
+            {"label": "Build-up", "percentile": xg_chain_pct},
+        ]
+
     sections["Market Value"] = _render_selection(market_value_selection(row["market_value_eur"]))
 
     stats = []
@@ -168,7 +198,7 @@ def build_player_profile(conn: sqlite3.Connection, player_id: int, competition_i
         value = row[column]
         pct = percentile(conn, player_id, season_id, competition_id, pct_column) if pct_column and value is not None else None
         bar_pct = (1 - pct) if (pct is not None and lower_is_better) else pct
-        display = f"EUR {value / 1_000_000:.1f}m" if column == "market_value_eur" and value is not None else value
+        display = _format_stat_value(column, value)
         stats.append({"label": label, "value": value, "display": display, "percentile": pct, "bar_percentile": bar_pct})
 
     sources = conn.execute(
@@ -206,6 +236,8 @@ def build_player_profile(conn: sqlite3.Connection, player_id: int, competition_i
         },
         "sections": sections,
         "stats": stats,
+        "radar": radar,
+        "radar_svg": build_radar_svg(radar),
         "sources_line": sources_line,
         "as_of_date": datetime.now(timezone.utc).date().isoformat(),
         "tier_caveat": tier_caveat,

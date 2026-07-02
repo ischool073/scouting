@@ -55,6 +55,23 @@ def _source_links(conn, player_id: int, canonical_name: str) -> list[dict]:
     return links
 
 
+def _resolve_player_id_by_name(conn, competition_id: str, season_id: str, name: str):
+    row = conn.execute(
+        """SELECT p.player_id FROM player p JOIN player_season_stat_flat f ON f.player_id = p.player_id
+           WHERE f.competition_id = ? AND f.season_id = ? AND f.minutes IS NOT NULL AND p.canonical_name = ?""",
+        (competition_id, season_id, name),
+    ).fetchone()
+    if row:
+        return row["player_id"]
+    row = conn.execute(
+        """SELECT p.player_id FROM player p JOIN player_season_stat_flat f ON f.player_id = p.player_id
+           WHERE f.competition_id = ? AND f.season_id = ? AND f.minutes IS NOT NULL AND p.canonical_name LIKE ?
+           LIMIT 1""",
+        (competition_id, season_id, f"%{name}%"),
+    ).fetchone()
+    return row["player_id"] if row else None
+
+
 def _summary_stats(conn, competition_id, season_id):
     if not competition_id:
         return {}
@@ -157,6 +174,49 @@ def report(player_id, competition_id=None, season_id=None):
     conn.close()
 
     return render_template("profile.html", profile=profile, source_links=source_links, error=error)
+
+
+@app.route("/compare")
+def compare():
+    conn = get_connection()
+    comp_seasons = _available_competition_seasons(conn)
+    default = comp_seasons[0] if comp_seasons else None
+    competition_id = request.args.get("competition") or (default["competition_id"] if default else "")
+    season_id = request.args.get("season") or (default["season_id"] if default else "")
+    name_a = request.args.get("player_a", "").strip()
+    name_b = request.args.get("player_b", "").strip()
+    players = _players_for_datalist(conn, competition_id, season_id) if competition_id else []
+
+    profile_a = profile_b = None
+    stat_pairs = []
+    error = None
+    if name_a and name_b:
+        pid_a = _resolve_player_id_by_name(conn, competition_id, season_id, name_a)
+        pid_b = _resolve_player_id_by_name(conn, competition_id, season_id, name_b)
+        if pid_a is None or pid_b is None:
+            error = "Couldn't find one or both players for this competition/season -- pick from the suggestions."
+        else:
+            try:
+                profile_a = build_player_profile(conn, pid_a, competition_id, season_id)
+                profile_b = build_player_profile(conn, pid_b, competition_id, season_id)
+                stat_pairs = list(zip(profile_a["stats"], profile_b["stats"]))
+            except ValueError as exc:
+                error = str(exc)
+    conn.close()
+
+    return render_template(
+        "compare.html",
+        players=players,
+        competition_id=competition_id,
+        season_id=season_id,
+        name_a=name_a,
+        name_b=name_b,
+        profile_a=profile_a,
+        profile_b=profile_b,
+        stat_pairs=stat_pairs,
+        error=error,
+        active_page="compare",
+    )
 
 
 def main():
