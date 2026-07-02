@@ -1,0 +1,18 @@
+# Scouting Report: {{ player_name }}
+
+**Team:** {{ team }} | **Position:** {{ position or "Unknown" }} | **Competition:** {{ competition_name }} ({{ season }})
+
+## Playing Time
+{{ player_name }} played {{ minutes if minutes is not none else "an unknown number of" }} minute{{ "s" if minutes != 1 else "" }} this season{% if goals is not none %}, scoring {{ goals }} goal{{ "s" if goals != 1 else "" }}{% if assists is not none %} and providing {{ assists }} assist{{ "s" if assists != 1 else "" }}{% endif %}{% endif %}.
+
+## Finishing
+{{ finishing_text }}
+
+## Creativity
+{{ creativity_text }}
+
+## Market Value
+{{ market_value_text }}
+
+---
+*Sources: {{ sources_line }}. Data as of {{ as_of_date }}. {{ tier_caveat }}*

@@ -1,0 +1,143 @@
+# Single source of truth for in-scope competitions.
+# fbref_source: which package reads this competition's FBref stats ("soccerdata" for
+#   top flight, "fbrefdata" for 2nd tier, null where no free advanced-stats source exists (3rd tier)).
+# fbref_key: the league identifier string passed to that package's FBref(leagues=[...]) call.
+# transfermarkt_competition_id: competition id in the dcaribou/transfermarkt-datasets dataset.
+# understat_key: league identifier for soccerdata.Understat(leagues=[...]); null where Understat
+#   has no coverage (all 2nd/3rd tiers).
+#
+# NOTE: fbref_key / transfermarkt_competition_id values below are best-effort based on each
+# project's documented naming conventions. Verify each one against the live package/dataset
+# during Stage 1-3 ingestion and correct here if a key doesn't resolve -- this file is the
+# only place that needs fixing.
+
+leagues:
+  # --- England ---
+  - id: ENG1
+    country: England
+    tier: 1
+    display_name: "Premier League"
+    fbref_source: soccerdata
+    fbref_key: "ENG-Premier League"
+    transfermarkt_competition_id: "GB1"
+    understat_key: "ENG-Premier League"
+  - id: ENG2
+    country: England
+    tier: 2
+    display_name: "Championship"
+    fbref_source: fbrefdata
+    fbref_key: "ENG-Championship"
+    transfermarkt_competition_id: "GB2"
+    understat_key: null
+  - id: ENG3
+    country: England
+    tier: 3
+    display_name: "League One"
+    fbref_source: null
+    fbref_key: null
+    transfermarkt_competition_id: "GB3"
+    understat_key: null
+
+  # --- Spain ---
+  - id: ESP1
+    country: Spain
+    tier: 1
+    display_name: "La Liga"
+    fbref_source: soccerdata
+    fbref_key: "ESP-La Liga"
+    transfermarkt_competition_id: "ES1"
+    understat_key: "ESP-La Liga"
+  - id: ESP2
+    country: Spain
+    tier: 2
+    display_name: "Segunda Division"
+    fbref_source: fbrefdata
+    fbref_key: "ESP-Segunda Division"
+    transfermarkt_competition_id: "ES2"
+    understat_key: null
+  - id: ESP3
+    country: Spain
+    tier: 3
+    display_name: "Primera Federacion"
+    fbref_source: null
+    fbref_key: null
+    transfermarkt_competition_id: "ES3"
+    understat_key: null
+
+  # --- Germany ---
+  - id: GER1
+    country: Germany
+    tier: 1
+    display_name: "Bundesliga"
+    fbref_source: soccerdata
+    fbref_key: "GER-Bundesliga"
+    transfermarkt_competition_id: "L1"
+    understat_key: "GER-Bundesliga"
+  - id: GER2
+    country: Germany
+    tier: 2
+    display_name: "2. Bundesliga"
+    fbref_source: fbrefdata
+    fbref_key: "GER-2. Bundesliga"
+    transfermarkt_competition_id: "L2"
+    understat_key: null
+  - id: GER3
+    country: Germany
+    tier: 3
+    display_name: "3. Liga"
+    fbref_source: null
+    fbref_key: null
+    transfermarkt_competition_id: "L3"
+    understat_key: null
+
+  # --- Italy ---
+  - id: ITA1
+    country: Italy
+    tier: 1
+    display_name: "Serie A"
+    fbref_source: soccerdata
+    fbref_key: "ITA-Serie A"
+    transfermarkt_competition_id: "IT1"
+    understat_key: "ITA-Serie A"
+  - id: ITA2
+    country: Italy
+    tier: 2
+    display_name: "Serie B"
+    fbref_source: fbrefdata
+    fbref_key: "ITA-Serie B"
+    transfermarkt_competition_id: "IT2"
+    understat_key: null
+  - id: ITA3
+    country: Italy
+    tier: 3
+    display_name: "Serie C"
+    fbref_source: null
+    fbref_key: null
+    transfermarkt_competition_id: "IT3"
+    understat_key: null
+
+  # --- France ---
+  - id: FRA1
+    country: France
+    tier: 1
+    display_name: "Ligue 1"
+    fbref_source: soccerdata
+    fbref_key: "FRA-Ligue 1"
+    transfermarkt_competition_id: "FR1"
+    understat_key: "FRA-Ligue 1"
+  - id: FRA2
+    country: France
+    tier: 2
+    display_name: "Ligue 2"
+    fbref_source: fbrefdata
+    fbref_key: "FRA-Ligue 2"
+    transfermarkt_competition_id: "FR2"
+    understat_key: null
+  - id: FRA3
+    country: France
+    tier: 3
+    display_name: "National"
+    fbref_source: null
+    fbref_key: null
+    transfermarkt_competition_id: "FR3"
+    understat_key: null
