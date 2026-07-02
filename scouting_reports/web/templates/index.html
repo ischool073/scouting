@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<form action="/search" method="get">
+    <input type="text" name="player" list="player-names" placeholder="Search a player, e.g. Salah" autofocus required>
+    <select name="competition">
+        {% for cs in comp_seasons %}
+        <option value="{{ cs.competition_id }}" {% if default and cs.competition_id == default.competition_id and cs.season_id == default.season_id %}selected{% endif %}>
+            {{ cs.display_name }} ({{ cs.season_id }})
+        </option>
+        {% endfor %}
+    </select>
+    <input type="hidden" name="season" value="{{ default.season_id if default else '' }}" id="season-field">
+    <button type="submit">Search</button>
+</form>
+
+<datalist id="player-names">
+    {% for p in players %}
+    <option value="{{ p.canonical_name }}">{{ p.canonical_name }} ({{ p.last_team_hint }})</option>
+    {% endfor %}
+</datalist>
+
+<script>
+    // keep the hidden season field in sync with whichever competition/season option is selected
+    const select = document.querySelector('select[name=competition]');
+    const seasonField = document.getElementById('season-field');
+    select.addEventListener('change', () => {
+        const opt = select.selectedOptions[0].textContent.match(/\(([^)]+)\)/);
+        if (opt) seasonField.value = opt[1];
+    });
+</script>
+
+<p style="color:#9aa0a6; font-size: 0.9rem;">
+    {{ players|length }} players available for the selected competition/season.
+</p>
+{% endblock %}

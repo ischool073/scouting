@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+{% if error %}
+    <p class="error">{{ error }}</p>
+{% else %}
+    <div class="card">{{ report_html | safe }}</div>
+{% endif %}
+<a class="back-link" href="/">&larr; back to search</a>
+{% endblock %}
