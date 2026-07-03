@@ -14,10 +14,12 @@ app = Flask(__name__)
 
 
 def _available_competition_seasons(conn):
+    # DESC on season_id so the most recent season sorts first -- callers that pick
+    # comp_seasons[0] as a default get the current season, not the oldest one loaded.
     return conn.execute(
         """SELECT DISTINCT f.competition_id, c.display_name, f.season_id
            FROM player_season_stat_flat f JOIN competition c ON c.competition_id = f.competition_id
-           ORDER BY c.display_name, f.season_id"""
+           ORDER BY c.display_name, f.season_id DESC"""
     ).fetchall()
 
 
