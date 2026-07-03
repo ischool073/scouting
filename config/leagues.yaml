@@ -5,6 +5,9 @@
 # transfermarkt_competition_id: competition id in the dcaribou/transfermarkt-datasets dataset.
 # understat_key: league identifier for soccerdata.Understat(leagues=[...]); null where Understat
 #   has no coverage (all 2nd/3rd tiers).
+# sofascore_tournament_id: SofaScore's internal tournament id, used to hit their statistics API
+#   directly (see ingest/sofascore_ingest.py). Only verified for ENG1 so far -- null elsewhere
+#   until confirmed the same way (fetch /api/v1/unique-tournament/{id}/seasons and check the name).
 #
 # NOTE: fbref_key / transfermarkt_competition_id values below are best-effort based on each
 # project's documented naming conventions. Verify each one against the live package/dataset
@@ -21,6 +24,7 @@ leagues:
     fbref_key: "ENG-Premier League"
     transfermarkt_competition_id: "GB1"
     understat_key: "ENG-Premier League"
+    sofascore_tournament_id: 17
   - id: ENG2
     country: England
     tier: 2
@@ -29,6 +33,7 @@ leagues:
     fbref_key: "ENG-Championship"
     transfermarkt_competition_id: "GB2"
     understat_key: null
+    sofascore_tournament_id: null
   - id: ENG3
     country: England
     tier: 3
@@ -37,6 +42,7 @@ leagues:
     fbref_key: null
     transfermarkt_competition_id: "GB3"
     understat_key: null
+    sofascore_tournament_id: null
 
   # --- Spain ---
   - id: ESP1
@@ -47,6 +53,7 @@ leagues:
     fbref_key: "ESP-La Liga"
     transfermarkt_competition_id: "ES1"
     understat_key: "ESP-La Liga"
+    sofascore_tournament_id: null
   - id: ESP2
     country: Spain
     tier: 2
@@ -55,6 +62,7 @@ leagues:
     fbref_key: "ESP-Segunda Division"
     transfermarkt_competition_id: "ES2"
     understat_key: null
+    sofascore_tournament_id: null
   - id: ESP3
     country: Spain
     tier: 3
@@ -63,6 +71,7 @@ leagues:
     fbref_key: null
     transfermarkt_competition_id: "ES3"
     understat_key: null
+    sofascore_tournament_id: null
 
   # --- Germany ---
   - id: GER1
@@ -73,6 +82,7 @@ leagues:
     fbref_key: "GER-Bundesliga"
     transfermarkt_competition_id: "L1"
     understat_key: "GER-Bundesliga"
+    sofascore_tournament_id: null
   - id: GER2
     country: Germany
     tier: 2
@@ -81,6 +91,7 @@ leagues:
     fbref_key: "GER-2. Bundesliga"
     transfermarkt_competition_id: "L2"
     understat_key: null
+    sofascore_tournament_id: null
   - id: GER3
     country: Germany
     tier: 3
@@ -89,6 +100,7 @@ leagues:
     fbref_key: null
     transfermarkt_competition_id: "L3"
     understat_key: null
+    sofascore_tournament_id: null
 
   # --- Italy ---
   - id: ITA1
@@ -99,6 +111,7 @@ leagues:
     fbref_key: "ITA-Serie A"
     transfermarkt_competition_id: "IT1"
     understat_key: "ITA-Serie A"
+    sofascore_tournament_id: null
   - id: ITA2
     country: Italy
     tier: 2
@@ -107,6 +120,7 @@ leagues:
     fbref_key: "ITA-Serie B"
     transfermarkt_competition_id: "IT2"
     understat_key: null
+    sofascore_tournament_id: null
   - id: ITA3
     country: Italy
     tier: 3
@@ -115,6 +129,7 @@ leagues:
     fbref_key: null
     transfermarkt_competition_id: "IT3"
     understat_key: null
+    sofascore_tournament_id: null
 
   # --- France ---
   - id: FRA1
@@ -125,6 +140,7 @@ leagues:
     fbref_key: "FRA-Ligue 1"
     transfermarkt_competition_id: "FR1"
     understat_key: "FRA-Ligue 1"
+    sofascore_tournament_id: null
   - id: FRA2
     country: France
     tier: 2
@@ -133,6 +149,7 @@ leagues:
     fbref_key: "FRA-Ligue 2"
     transfermarkt_competition_id: "FR2"
     understat_key: null
+    sofascore_tournament_id: null
   - id: FRA3
     country: France
     tier: 3
@@ -141,3 +158,4 @@ leagues:
     fbref_key: null
     transfermarkt_competition_id: "FR3"
     understat_key: null
+    sofascore_tournament_id: null

@@ -3,7 +3,7 @@ import sqlite3
 import pytest
 
 from scouting_reports.db.connection import SCHEMA_PATH
-from scouting_reports.reports.generator import _age, build_player_profile
+from scouting_reports.reports.generator import _age, _per90, build_player_profile
 
 
 @pytest.fixture
@@ -115,3 +115,56 @@ def test_fouls_committed_bar_percentile_is_inverted(conn):
     low_bar = next(s["bar_percentile"] for s in low_fouls_profile["stats"] if s["label"] == "Fouls Committed")
     high_bar = next(s["bar_percentile"] for s in high_fouls_profile["stats"] if s["label"] == "Fouls Committed")
     assert low_bar > high_bar
+
+
+def test_per90_divides_count_stats_by_minutes():
+    # 9 goals in 900 minutes (10 x 90) -> exactly 0.9 goals per 90.
+    assert _per90(9, 900, is_rate_stat=False) == 0.9
+
+
+def test_per90_leaves_rate_stats_unchanged():
+    # SofaScore's distance/sprints/rating are already per-match averages, not season totals --
+    # must NOT be divided by minutes/90 again.
+    assert _per90(7.17, 2148, is_rate_stat=True) == 7.17
+
+
+def test_per90_none_passthrough():
+    assert _per90(None, 900, is_rate_stat=False) is None
+
+
+def test_outfield_profile_includes_four_categories_with_per90_values(conn):
+    cur = conn.execute("INSERT INTO player (canonical_name, primary_position) VALUES ('Category Test', 'MF')")
+    player_id = cur.lastrowid
+    conn.execute(
+        """INSERT INTO player_season_stat_flat
+           (player_id, season_id, competition_id, minutes, goals, sofascore_rating, distance_km)
+           VALUES (?, '2024-2025', 'ENG1', 900, 9, 7.2, 10.5)""",
+        (player_id,),
+    )
+    conn.commit()
+
+    profile = build_player_profile(conn, player_id, "ENG1", "2024-2025")
+
+    assert set(profile["categories"].keys()) == {"Attacking", "Passing & Progression", "Defending", "Physical"}
+    goals_row = next(s for s in profile["categories"]["Attacking"] if s["label"] == "Goals")
+    assert goals_row["value"] == 0.9  # 9 goals / (900/90) -- true per-90 count stat
+
+    rating_row = next(s for s in profile["categories"]["Physical"] if s["label"] == "Match Rating")
+    assert rating_row["value"] == 7.2  # rate stat, shown as-is not divided again
+
+    distance_row = next(s for s in profile["categories"]["Physical"] if s["label"] == "Distance per Match (km)")
+    assert distance_row["value"] == 10.5
+
+
+def test_goalkeeper_profile_gets_goalkeeping_and_physical_categories(conn):
+    cur = conn.execute("INSERT INTO player (canonical_name, primary_position) VALUES ('GK Category Test', 'GK')")
+    player_id = cur.lastrowid
+    conn.execute(
+        """INSERT INTO player_season_stat_flat (player_id, season_id, competition_id, minutes, save_pct)
+           VALUES (?, '2024-2025', 'ENG1', 900, 70.0)""",
+        (player_id,),
+    )
+    conn.commit()
+
+    profile = build_player_profile(conn, player_id, "ENG1", "2024-2025")
+    assert set(profile["categories"].keys()) == {"Goalkeeping", "Physical"}

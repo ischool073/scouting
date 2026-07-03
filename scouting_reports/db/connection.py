@@ -32,6 +32,8 @@ def init_db(db_path: Path = DEFAULT_DB_PATH) -> None:
 # schema.sql directly; this lets existing local databases pick them up without a rebuild.
 _NEW_COLUMNS = {
     "player_season_stat_flat": {
+        "appearances": "INTEGER",
+        "starts": "INTEGER",
         "interceptions": "INTEGER",
         "shots": "INTEGER",
         "shots_on_target": "INTEGER",
@@ -44,6 +46,13 @@ _NEW_COLUMNS = {
         "save_pct": "REAL",
         "clean_sheet_pct": "REAL",
         "goals_against_90": "REAL",
+        "sofascore_rating": "REAL",
+        "distance_km": "REAL",
+        "sprints": "INTEGER",
+        "top_speed_kmh": "REAL",
+        "duels_won_pct": "REAL",
+        "dribbles_won_pct": "REAL",
+        "big_chances_created": "INTEGER",
     },
     "player": {
         "height_cm": "INTEGER",

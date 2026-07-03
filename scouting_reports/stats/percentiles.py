@@ -73,5 +73,7 @@ _ALLOWED_STAT_COLUMNS = {
     "shots", "shots_on_target", "fouls_committed", "fouls_drawn", "crosses",
     "xg_chain", "xg_buildup", "key_passes",
     "save_pct", "clean_sheet_pct", "goals_against_90",
+    "sofascore_rating", "distance_km", "sprints", "top_speed_kmh",
+    "duels_won_pct", "dribbles_won_pct", "big_chances_created",
     "market_value_eur",
 }

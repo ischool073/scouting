@@ -4,18 +4,21 @@
     <p class="error" style="margin-top:24px;">{{ error }}</p>
     <a class="back-link" href="/">&larr; back to search</a>
 {% else %}
-{% if available_seasons|length > 1 %}
-<div style="margin-top:20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-    <span style="color:var(--muted); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.4px;">Season:</span>
-    {% for s in available_seasons %}
-    <a href="/report/{{ player_id }}?competition={{ s.competition_id }}&season={{ s.season_id }}"
-       style="padding:6px 16px; border-radius:999px; font-size:0.85rem; font-weight:700;
-              {% if s.season_id == current_season_id %}background:var(--accent); color:#0c0c0c;{% else %}border:1px solid var(--border); color:var(--ink);{% endif %}">
-        {{ s.season_id }}
-    </a>
-    {% endfor %}
+<div style="margin-top:20px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        {% if available_seasons|length > 1 %}
+        <span style="color:var(--muted); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.4px;">Season:</span>
+        {% for s in available_seasons %}
+        <a href="/report/{{ player_id }}?competition={{ s.competition_id }}&season={{ s.season_id }}"
+           style="padding:6px 16px; border-radius:999px; font-size:0.85rem; font-weight:700;
+                  {% if s.season_id == current_season_id %}background:var(--accent); color:var(--ink);{% else %}border:1px solid var(--border); color:var(--ink);{% endif %}">
+            {{ s.season_id }}
+        </a>
+        {% endfor %}
+        {% endif %}
+    </div>
+    {% include "_badge.html" %}
 </div>
-{% endif %}
 <div class="layout-2col" style="margin-top:20px;">
     <div class="card">
         {% if profile.bio.photo_url %}
@@ -38,6 +41,35 @@
             {% if profile.bio.age %}<br>Age {{ profile.bio.age }}{% endif %}
             {% if profile.bio.height_cm %} &middot; {{ profile.bio.height_cm }}cm{% endif %}
             {% if profile.bio.preferred_foot %} &middot; {{ profile.bio.preferred_foot | capitalize }}-footed{% endif %}
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-bottom:8px;">
+            <div style="background:var(--card-alt); border-radius:6px; padding:10px 12px;">
+                <div class="stat-value" style="font-size:1.3rem;">{{ profile.appearances if profile.appearances is not none else "&mdash;" | safe }}</div>
+                <div style="color:var(--muted); font-size:0.7rem; text-transform:uppercase;">Appearances</div>
+            </div>
+            <div style="background:var(--card-alt); border-radius:6px; padding:10px 12px;">
+                <div class="stat-value" style="font-size:1.3rem;">{{ profile.starts if profile.starts is not none else "&mdash;" | safe }}</div>
+                <div style="color:var(--muted); font-size:0.7rem; text-transform:uppercase;">Starts</div>
+            </div>
+            <div style="background:var(--card-alt); border-radius:6px; padding:10px 12px;">
+                <div class="stat-value" style="font-size:1.3rem;">{{ profile.goals if profile.goals is not none else "&mdash;" | safe }}</div>
+                <div style="color:var(--muted); font-size:0.7rem; text-transform:uppercase;">Goals</div>
+            </div>
+            <div style="background:var(--card-alt); border-radius:6px; padding:10px 12px;">
+                <div class="stat-value" style="font-size:1.3rem;">{{ profile.assists if profile.assists is not none else "&mdash;" | safe }}</div>
+                <div style="color:var(--muted); font-size:0.7rem; text-transform:uppercase;">Assists</div>
+            </div>
+            <div style="background:var(--card-alt); border-radius:6px; padding:10px 12px;">
+                <div class="stat-value" style="font-size:1.3rem;">{{ profile.minutes if profile.minutes is not none else "&mdash;" | safe }}</div>
+                <div style="color:var(--muted); font-size:0.7rem; text-transform:uppercase;">Minutes</div>
+            </div>
+            {% if profile.match_rating %}
+            <div style="background:var(--accent); border-radius:6px; padding:10px 12px;">
+                <div class="stat-value" style="font-size:1.3rem;">{{ "%.2f"|format(profile.match_rating) }}</div>
+                <div style="color:var(--ink); font-size:0.7rem; text-transform:uppercase; opacity:0.75;">Match Rating</div>
+            </div>
+            {% endif %}
         </div>
 
         <h2 style="margin-top:0;">Player Info</h2>
@@ -73,7 +105,29 @@
         <div style="max-width:340px; margin:0 auto 8px;">{{ profile.radar_svg | safe }}</div>
         {% endif %}
 
-        <h2 {% if not profile.radar_svg %}style="margin-top:0;"{% endif %}>Scout's Summary</h2>
+        <h2 {% if not profile.radar_svg %}style="margin-top:0;"{% endif %}>Category Breakdown <span style="color:var(--muted); text-transform:none; font-weight:400; letter-spacing:0;">(per 90, unless marked)</span></h2>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            {% for cat_title, cat_stats in profile.categories.items() %}
+            <div>
+                <div style="font-weight:700; font-size:0.85rem; margin-bottom:8px;">{{ cat_title }}</div>
+                {% for stat in cat_stats %}
+                <div style="margin-bottom:10px;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:3px;">
+                        <span style="color:var(--muted);">{{ stat.label }}</span>
+                        <span class="stat-value">{{ stat.value if stat.value is not none else "&mdash;" | safe }}</span>
+                    </div>
+                    {% if stat.bar_percentile is not none %}
+                    <div style="background:var(--border); border-radius:3px; height:6px; overflow:hidden;">
+                        <div style="background:var(--accent); height:100%; width:{{ (stat.bar_percentile * 100) | round }}%;"></div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <h2>Scout's Summary</h2>
         {% for title, text in profile.sections.items() %}
         <p><strong>{{ title }}:</strong> {{ text }}</p>
         {% endfor %}
@@ -96,7 +150,11 @@
         </table>
 
         <hr>
-        <em>Sources: {{ profile.sources_line }}. Data as of {{ profile.as_of_date }}. {{ profile.tier_caveat }}</em>
+        <em>Sources: {{ profile.sources_line }}. Data as of {{ profile.as_of_date }}. {{ profile.tier_caveat }}</em><br>
+        <em>Not shown: shot maps, pass maps, and position heatmaps -- these need per-match event
+        coordinates that FBref/Understat/Transfermarkt/SofaScore's season-stat endpoints don't
+        provide. Same for match-by-match form and trend lines, which need per-match granularity
+        beyond season totals.</em>
     </div>
 </div>
 <a class="back-link" href="/">&larr; back to search</a>

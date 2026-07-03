@@ -5,21 +5,24 @@
     <p class="lede">Pick two players from the same competition/season to see them side by side.</p>
 </div>
 
-<form action="/compare" method="get" class="search">
-    <input type="text" name="player_a" list="player-names" placeholder="Player A, e.g. Salah" value="{{ name_a }}" required>
-    <input type="text" name="player_b" list="player-names" placeholder="Player B, e.g. Haaland" value="{{ name_b }}" required>
-    <select name="competition">
-        {% for c in competitions %}
-        <option value="{{ c.competition_id }}" {% if c.competition_id == competition_id %}selected{% endif %}>{{ c.display_name }}</option>
-        {% endfor %}
-    </select>
-    <select name="season">
-        {% for s in seasons %}
-        <option value="{{ s.season_id }}" {% if s.season_id == season_id %}selected{% endif %}>{{ s.season_id }}</option>
-        {% endfor %}
-    </select>
-    <button type="submit">Compare</button>
-</form>
+<div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+    <form action="/compare" method="get" class="search" style="margin-bottom:0;">
+        <input type="text" name="player_a" list="player-names" placeholder="Player A, e.g. Salah" value="{{ name_a }}" required>
+        <input type="text" name="player_b" list="player-names" placeholder="Player B, e.g. Haaland" value="{{ name_b }}" required>
+        <select name="competition">
+            {% for c in competitions %}
+            <option value="{{ c.competition_id }}" {% if c.competition_id == competition_id %}selected{% endif %}>{{ c.display_name }}</option>
+            {% endfor %}
+        </select>
+        <select name="season">
+            {% for s in seasons %}
+            <option value="{{ s.season_id }}" {% if s.season_id == season_id %}selected{% endif %}>{{ s.season_id }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Compare</button>
+    </form>
+    {% include "_badge.html" %}
+</div>
 <datalist id="player-names">
     {% for p in players %}
     <option value="{{ p.canonical_name }}">{{ p.canonical_name }} ({{ p.last_team_hint }})</option>

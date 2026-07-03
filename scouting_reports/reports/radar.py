@@ -30,13 +30,13 @@ def build_radar_svg(axes: list[dict]) -> str:
     grid_polygons = []
     for ring in GRID_RINGS:
         pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in (_point(a, RADIUS * ring) for a in angles))
-        grid_polygons.append(f'<polygon points="{pts}" fill="none" stroke="#2a2a2a" stroke-width="1"/>')
+        grid_polygons.append(f'<polygon points="{pts}" fill="none" stroke="#dcdfe4" stroke-width="1"/>')
 
     spokes = []
     labels = []
     for angle, axis in zip(angles, axes):
         x, y = _point(angle, RADIUS)
-        spokes.append(f'<line x1="{CENTER}" y1="{CENTER}" x2="{x:.1f}" y2="{y:.1f}" stroke="#2a2a2a" stroke-width="1"/>')
+        spokes.append(f'<line x1="{CENTER}" y1="{CENTER}" x2="{x:.1f}" y2="{y:.1f}" stroke="#dcdfe4" stroke-width="1"/>')
         lx, ly = _point(angle, RADIUS + 32)
         anchor = "middle"
         if lx < CENTER - 5:
@@ -44,7 +44,7 @@ def build_radar_svg(axes: list[dict]) -> str:
         elif lx > CENTER + 5:
             anchor = "start"
         labels.append(
-            f'<text x="{lx:.1f}" y="{ly:.1f}" fill="#9a9a9a" font-size="11" text-anchor="{anchor}" '
+            f'<text x="{lx:.1f}" y="{ly:.1f}" fill="#5b6472" font-size="11" text-anchor="{anchor}" '
             f'font-family="-apple-system, Arial, sans-serif" font-weight="600">{axis["label"].upper()}</text>'
         )
 
@@ -54,10 +54,10 @@ def build_radar_svg(axes: list[dict]) -> str:
         pct = axis["percentile"] or 0
         x, y = _point(angle, RADIUS * pct)
         data_points.append((x, y))
-        dots.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.5" fill="#ccff00"/>')
+        dots.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.5" fill="#6b9b00"/>')
 
     poly_pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in data_points)
-    data_polygon = f'<polygon points="{poly_pts}" fill="#ccff00" fill-opacity="0.25" stroke="#ccff00" stroke-width="2"/>'
+    data_polygon = f'<polygon points="{poly_pts}" fill="#6b9b00" fill-opacity="0.20" stroke="#6b9b00" stroke-width="2"/>'
 
     return (
         f'<svg viewBox="0 0 {SIZE} {SIZE}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">'

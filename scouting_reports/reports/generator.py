@@ -88,8 +88,62 @@ STAT_FIELDS = [
     ("Save %", "save_pct", "save_pct", False),
     ("Clean Sheet %", "clean_sheet_pct", "clean_sheet_pct", False),
     ("Goals Conceded per 90", "goals_against_90", "goals_against_90", True),
+    ("Match Rating", "sofascore_rating", "sofascore_rating", False),
+    ("Distance per Match (km)", "distance_km", "distance_km", False),
+    ("Sprints per Match", "sprints", "sprints", False),
+    ("Top Speed (km/h)", "top_speed_kmh", "top_speed_kmh", False),
+    ("Duels Won %", "duels_won_pct", "duels_won_pct", False),
+    ("Dribbles Won %", "dribbles_won_pct", "dribbles_won_pct", False),
+    ("Big Chances Created", "big_chances_created", "big_chances_created", False),
     ("Market Value (EUR)", "market_value_eur", "market_value_eur", False),
 ]
+
+# Dashboard category grid: (label, column, percentile_column, lower_is_better, is_rate_stat).
+# is_rate_stat=True means the stored value is already a per-match average or a peak (e.g.
+# SofaScore's distance/sprints/top-speed/rating/percentages), not a season total -- shown as-is
+# rather than divided by minutes/90 the way count stats (goals, tackles, shots...) are.
+PHYSICAL_CATEGORY = [
+    ("Match Rating", "sofascore_rating", "sofascore_rating", False, True),
+    ("Distance per Match (km)", "distance_km", "distance_km", False, True),
+    ("Sprints per Match", "sprints", "sprints", False, True),
+    ("Top Speed (km/h)", "top_speed_kmh", "top_speed_kmh", False, True),
+]
+
+OUTFIELD_CATEGORIES = {
+    "Attacking": [
+        ("Goals", "goals", None, False, False),
+        ("Expected Goals (xG)", "xg", "xg", False, False),
+        ("Shots", "shots", "shots", False, False),
+        ("Shots on Target", "shots_on_target", "shots_on_target", False, False),
+        ("Big Chances Created", "big_chances_created", "big_chances_created", False, False),
+        ("Fouls Won", "fouls_drawn", "fouls_drawn", False, False),
+    ],
+    "Passing & Progression": [
+        ("Assists", "assists", None, False, False),
+        ("Expected Assists (xA)", "xa", "xa", False, False),
+        ("Key Passes", "key_passes", "key_passes", False, False),
+        ("xG Chain", "xg_chain", "xg_chain", False, False),
+        ("xG Buildup", "xg_buildup", "xg_buildup", False, False),
+        ("Crosses", "crosses", "crosses", False, False),
+    ],
+    "Defending": [
+        ("Tackles Won", "tackles_won", "tackles_won", False, False),
+        ("Interceptions", "interceptions", "interceptions", False, False),
+        ("Duels Won %", "duels_won_pct", "duels_won_pct", False, True),
+        ("Dribbles Won %", "dribbles_won_pct", "dribbles_won_pct", False, True),
+        ("Fouls Committed", "fouls_committed", "fouls_committed", True, False),
+    ],
+    "Physical": PHYSICAL_CATEGORY,
+}
+
+GOALKEEPER_CATEGORIES = {
+    "Goalkeeping": [
+        ("Save %", "save_pct", "save_pct", False, True),
+        ("Clean Sheet %", "clean_sheet_pct", "clean_sheet_pct", False, True),
+        ("Goals Conceded per 90", "goals_against_90", "goals_against_90", True, True),
+    ],
+    "Physical": PHYSICAL_CATEGORY,
+}
 
 
 def _render_selection(selection) -> str:
@@ -117,6 +171,29 @@ def _format_stat_value(column: str, value) -> Optional[str]:
     return str(value)
 
 
+def _per90(value, minutes: Optional[int], is_rate_stat: bool):
+    if value is None:
+        return None
+    if is_rate_stat or not minutes:
+        return round(value, 2) if isinstance(value, float) else value
+    return round(value / (minutes / 90), 2)
+
+
+def _build_category(conn, player_id, season_id, competition_id, row, fields) -> list[dict]:
+    result = []
+    for label, column, pct_column, lower_is_better, is_rate in fields:
+        raw_value = row[column]
+        pct = percentile(conn, player_id, season_id, competition_id, pct_column) if pct_column and raw_value is not None else None
+        bar_pct = (1 - pct) if (pct is not None and lower_is_better) else pct
+        result.append({
+            "label": label,
+            "value": _per90(raw_value, row["minutes"], is_rate),
+            "percentile": pct,
+            "bar_percentile": bar_pct,
+        })
+    return result
+
+
 def _age(date_of_birth: Optional[str]) -> Optional[int]:
     if not date_of_birth:
         return None
@@ -133,10 +210,12 @@ def build_player_profile(conn: sqlite3.Connection, player_id: int, competition_i
         """SELECT p.canonical_name, p.primary_position, p.last_team_hint, p.date_of_birth,
                   p.nationality, p.height_cm, p.preferred_foot, p.photo_url,
                   p.contract_expires, p.international_caps, p.international_goals,
-                  f.minutes, f.goals, f.assists, f.xg, f.xa, f.npxg, f.market_value_eur,
+                  f.minutes, f.appearances, f.starts, f.goals, f.assists, f.xg, f.xa, f.npxg, f.market_value_eur,
                   f.tackles_won, f.interceptions, f.shots, f.shots_on_target, f.crosses,
                   f.fouls_committed, f.fouls_drawn, f.xg_chain, f.xg_buildup, f.key_passes,
-                  f.save_pct, f.clean_sheet_pct, f.goals_against_90
+                  f.save_pct, f.clean_sheet_pct, f.goals_against_90,
+                  f.sofascore_rating, f.distance_km, f.sprints, f.top_speed_kmh,
+                  f.duels_won_pct, f.dribbles_won_pct, f.big_chances_created
            FROM player p LEFT JOIN player_season_stat_flat f
              ON f.player_id = p.player_id AND f.season_id = ? AND f.competition_id = ?
            WHERE p.player_id = ?""",
@@ -201,6 +280,12 @@ def build_player_profile(conn: sqlite3.Connection, player_id: int, competition_i
         display = _format_stat_value(column, value)
         stats.append({"label": label, "value": value, "display": display, "percentile": pct, "bar_percentile": bar_pct})
 
+    category_source = GOALKEEPER_CATEGORIES if is_goalkeeper else OUTFIELD_CATEGORIES
+    categories = {
+        title: _build_category(conn, player_id, season_id, competition_id, row, fields)
+        for title, fields in category_source.items()
+    }
+
     sources = conn.execute(
         "SELECT DISTINCT source, MAX(fetched_at) as latest FROM stats_snapshot WHERE player_id = ? GROUP BY source",
         (player_id,),
@@ -221,8 +306,11 @@ def build_player_profile(conn: sqlite3.Connection, player_id: int, competition_i
         "competition_name": competition["display_name"] if competition else competition_id,
         "season": season_id,
         "minutes": row["minutes"],
+        "appearances": row["appearances"],
+        "starts": row["starts"],
         "goals": row["goals"],
         "assists": row["assists"],
+        "match_rating": row["sofascore_rating"],
         "bio": {
             "date_of_birth": row["date_of_birth"],
             "age": _age(row["date_of_birth"]),
@@ -236,6 +324,7 @@ def build_player_profile(conn: sqlite3.Connection, player_id: int, competition_i
         },
         "sections": sections,
         "stats": stats,
+        "categories": categories,
         "radar": radar,
         "radar_svg": build_radar_svg(radar),
         "sources_line": sources_line,

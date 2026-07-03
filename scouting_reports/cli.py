@@ -3,6 +3,7 @@ import click
 from scouting_reports.config import ensure_season, load_leagues, sync_competitions
 from scouting_reports.db.connection import get_connection, init_db
 from scouting_reports.ingest.fbref_top import FBrefTopIngestor
+from scouting_reports.ingest.sofascore_ingest import SofascoreIngestor
 from scouting_reports.ingest.transfermarkt_bulk import TransfermarktBulkIngestor
 from scouting_reports.ingest.understat_ingest import UnderstatIngestor
 from scouting_reports.reports.generator import generate_report
@@ -27,7 +28,9 @@ def init():
 @cli.command()
 @click.option("--competition", required=True, help="Competition id from config/leagues.yaml, e.g. ENG1")
 @click.option("--season", required=True, help="Season id, e.g. 2024-2025")
-@click.option("--source", type=click.Choice(["fbref", "understat", "transfermarkt", "all"]), default="all")
+@click.option(
+    "--source", type=click.Choice(["fbref", "understat", "transfermarkt", "sofascore", "all"]), default="all"
+)
 def ingest(competition, season, source):
     """Run ingestion for one competition/season."""
     conn = get_connection()
@@ -50,8 +53,24 @@ def ingest(competition, season, source):
         rows = ingestor.run(conn, competition, season)
         click.echo(f"transfermarkt: wrote {rows} stat rows")
 
-    flat_rows = flatten_player_season_stats(conn, competition, season)
-    click.echo(f"flattened {flat_rows} player-season rows")
+    if source in ("fbref", "understat", "transfermarkt", "all"):
+        flat_rows = flatten_player_season_stats(conn, competition, season)
+        click.echo(f"flattened {flat_rows} player-season rows")
+
+    if source in ("sofascore", "all") and league["sofascore_tournament_id"]:
+        # Enriches players we already have, rather than seeding new ones -- SofaScore has no
+        # bulk "every player" listing, so it looks each of our existing players up by name.
+        players = conn.execute(
+            """SELECT DISTINCT p.canonical_name, p.last_team_hint FROM player p
+               JOIN player_season_stat_flat f ON f.player_id = p.player_id
+               WHERE f.competition_id = ? AND f.season_id = ? AND f.minutes IS NOT NULL""",
+            (competition, season),
+        ).fetchall()
+        ingestor = SofascoreIngestor(tournament_id=league["sofascore_tournament_id"], players=[dict(p) for p in players])
+        rows = ingestor.run(conn, competition, season)
+        click.echo(f"sofascore: wrote {rows} stat rows (matched {rows}/{len(players)} players)")
+        flat_rows = flatten_player_season_stats(conn, competition, season)
+        click.echo(f"flattened {flat_rows} player-season rows")
 
     conn.close()
 

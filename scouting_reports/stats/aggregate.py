@@ -11,6 +11,9 @@ Field provenance (given the sources currently wired up):
     crosses                      <- FBref 'misc' stat_type
   save_pct/clean_sheet_pct/
     goals_against_90             <- FBref 'keeper' stat_type (goalkeepers only)
+  sofascore_rating/distance_km/sprints/top_speed_kmh/
+    duels_won_pct/dribbles_won_pct/
+    big_chances_created          <- SofaScore (physical/rating data no other source provides)
   market_value_eur               <- Transfermarkt bulk dataset
 
 progressive_carries/progressive_passes stay NULL -- FBref's soccerdata reader doesn't expose
@@ -37,6 +40,7 @@ def flatten_player_season_stats(conn: sqlite3.Connection, competition_id: str, s
         keeper = _latest_payload(conn, player_id, "fbref", "keeper", competition_id, season_id)
         understat = _latest_payload(conn, player_id, "understat", "understat_xg", competition_id, season_id)
         transfermarkt = _latest_payload(conn, player_id, "transfermarkt", "market_value", competition_id, season_id)
+        sofascore = _latest_payload(conn, player_id, "sofascore", "sofascore_overall", competition_id, season_id)
 
         position = (fbref or {}).get("pos")
         if position:
@@ -70,10 +74,14 @@ def flatten_player_season_stats(conn: sqlite3.Connection, competition_id: str, s
             )
 
         minutes = (fbref or {}).get("Playing Time_Min")
+        appearances = (fbref or {}).get("Playing Time_MP")
+        starts = (fbref or {}).get("Playing Time_Starts")
         goals = (fbref or {}).get("Performance_Gls")
         assists = (fbref or {}).get("Performance_Ast")
         if minutes is None and understat:
             minutes = understat.get("minutes")
+        if appearances is None and understat:
+            appearances = understat.get("matches")
         if goals is None and understat:
             goals = understat.get("goals")
         if assists is None and understat:
@@ -81,15 +89,18 @@ def flatten_player_season_stats(conn: sqlite3.Connection, competition_id: str, s
 
         conn.execute(
             """INSERT INTO player_season_stat_flat
-               (player_id, season_id, competition_id, minutes, goals, assists, xg, xa, npxg,
+               (player_id, season_id, competition_id, minutes, appearances, starts, goals, assists, xg, xa, npxg,
                 progressive_carries, progressive_passes, tackles_won, interceptions,
                 shots, shots_on_target, fouls_committed, fouls_drawn, crosses,
                 xg_chain, xg_buildup, key_passes,
                 save_pct, clean_sheet_pct, goals_against_90,
+                sofascore_rating, distance_km, sprints, top_speed_kmh,
+                duels_won_pct, dribbles_won_pct, big_chances_created,
                 market_value_eur, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                ON CONFLICT(player_id, season_id, competition_id) DO UPDATE SET
-                 minutes=excluded.minutes, goals=excluded.goals, assists=excluded.assists,
+                 minutes=excluded.minutes, appearances=excluded.appearances, starts=excluded.starts,
+                 goals=excluded.goals, assists=excluded.assists,
                  xg=excluded.xg, xa=excluded.xa, npxg=excluded.npxg,
                  tackles_won=excluded.tackles_won, interceptions=excluded.interceptions,
                  shots=excluded.shots, shots_on_target=excluded.shots_on_target,
@@ -97,17 +108,25 @@ def flatten_player_season_stats(conn: sqlite3.Connection, competition_id: str, s
                  crosses=excluded.crosses, xg_chain=excluded.xg_chain, xg_buildup=excluded.xg_buildup,
                  key_passes=excluded.key_passes, save_pct=excluded.save_pct,
                  clean_sheet_pct=excluded.clean_sheet_pct, goals_against_90=excluded.goals_against_90,
+                 sofascore_rating=excluded.sofascore_rating, distance_km=excluded.distance_km,
+                 sprints=excluded.sprints, top_speed_kmh=excluded.top_speed_kmh,
+                 duels_won_pct=excluded.duels_won_pct, dribbles_won_pct=excluded.dribbles_won_pct,
+                 big_chances_created=excluded.big_chances_created,
                  market_value_eur=excluded.market_value_eur, updated_at=datetime('now')
             """,
             (
                 player_id, season_id, competition_id,
-                minutes, goals, assists,
+                minutes, appearances, starts, goals, assists,
                 (understat or {}).get("xg"), (understat or {}).get("xa"), (understat or {}).get("np_xg"),
                 (misc or {}).get("Performance_TklW"), (misc or {}).get("Performance_Int"),
                 (shooting or {}).get("Standard_Sh"), (shooting or {}).get("Standard_SoT"),
                 (misc or {}).get("Performance_Fls"), (misc or {}).get("Performance_Fld"), (misc or {}).get("Performance_Crs"),
                 (understat or {}).get("xg_chain"), (understat or {}).get("xg_buildup"), (understat or {}).get("key_passes"),
                 (keeper or {}).get("Performance_Save%"), (keeper or {}).get("Performance_CS%"), (keeper or {}).get("Performance_GA90"),
+                (sofascore or {}).get("rating"), (sofascore or {}).get("kilometersCovered"),
+                (sofascore or {}).get("numberOfSprints"), (sofascore or {}).get("topSpeed"),
+                (sofascore or {}).get("totalDuelsWonPercentage"), (sofascore or {}).get("successfulDribblesPercentage"),
+                (sofascore or {}).get("bigChancesCreated"),
                 (transfermarkt or {}).get("market_value_in_eur"),
             ),
         )
