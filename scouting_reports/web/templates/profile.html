@@ -4,7 +4,19 @@
     <p class="error" style="margin-top:24px;">{{ error }}</p>
     <a class="back-link" href="/">&larr; back to search</a>
 {% else %}
-<div class="layout-2col" style="margin-top:24px;">
+{% if available_seasons|length > 1 %}
+<div style="margin-top:20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+    <span style="color:var(--muted); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.4px;">Season:</span>
+    {% for s in available_seasons %}
+    <a href="/report/{{ player_id }}?competition={{ s.competition_id }}&season={{ s.season_id }}"
+       style="padding:6px 16px; border-radius:999px; font-size:0.85rem; font-weight:700;
+              {% if s.season_id == current_season_id %}background:var(--accent); color:#0c0c0c;{% else %}border:1px solid var(--border); color:var(--ink);{% endif %}">
+        {{ s.season_id }}
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+<div class="layout-2col" style="margin-top:20px;">
     <div class="card">
         {% if profile.bio.photo_url %}
         <img src="{{ profile.bio.photo_url }}" alt="{{ profile.player_name }}"

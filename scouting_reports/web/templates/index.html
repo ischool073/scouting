@@ -7,14 +7,8 @@
 
         <form action="/search" method="get" class="search">
             <input type="text" name="player" list="player-names" placeholder="Search a player, e.g. Salah" autofocus required>
-            <select name="competition">
-                {% for cs in comp_seasons %}
-                <option value="{{ cs.competition_id }}" {% if default and cs.competition_id == default.competition_id and cs.season_id == default.season_id %}selected{% endif %}>
-                    {{ cs.display_name }} ({{ cs.season_id }})
-                </option>
-                {% endfor %}
-            </select>
-            <input type="hidden" name="season" value="{{ default.season_id if default else '' }}" id="season-field">
+            <input type="hidden" name="competition" value="{{ default.competition_id if default else '' }}">
+            <input type="hidden" name="season" value="{{ default.season_id if default else '' }}">
             <button type="submit">Search</button>
         </form>
 
@@ -24,15 +18,9 @@
             {% endfor %}
         </datalist>
 
-        <script>
-            const select = document.querySelector('select[name=competition]');
-            const seasonField = document.getElementById('season-field');
-            select.addEventListener('change', () => {
-                const opt = select.selectedOptions[0].textContent.match(/\(([^)]+)\)/);
-                if (opt) seasonField.value = opt[1];
-            });
-        </script>
-
+        <p style="color:var(--muted); font-size: 0.9rem;">
+            Search finds a player's current season by default &mdash; you can switch seasons once you're on their profile.
+        </p>
         <p style="color:var(--muted); font-size: 0.9rem;">
             {{ players|length }} players available &middot; or <a href="/players">browse the full list</a>.
         </p>

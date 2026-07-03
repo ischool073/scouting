@@ -8,8 +8,16 @@
 <form action="/compare" method="get" class="search">
     <input type="text" name="player_a" list="player-names" placeholder="Player A, e.g. Salah" value="{{ name_a }}" required>
     <input type="text" name="player_b" list="player-names" placeholder="Player B, e.g. Haaland" value="{{ name_b }}" required>
-    <input type="hidden" name="competition" value="{{ competition_id }}">
-    <input type="hidden" name="season" value="{{ season_id }}">
+    <select name="competition">
+        {% for c in competitions %}
+        <option value="{{ c.competition_id }}" {% if c.competition_id == competition_id %}selected{% endif %}>{{ c.display_name }}</option>
+        {% endfor %}
+    </select>
+    <select name="season">
+        {% for s in seasons %}
+        <option value="{{ s.season_id }}" {% if s.season_id == season_id %}selected{% endif %}>{{ s.season_id }}</option>
+        {% endfor %}
+    </select>
     <button type="submit">Compare</button>
 </form>
 <datalist id="player-names">

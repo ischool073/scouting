@@ -2,8 +2,21 @@
 {% block content %}
 <div class="hero" style="padding-bottom:0;">
     <h1>Browse <span>Players</span></h1>
-    <p class="lede">{{ players|length }} players &mdash; {{ competition_name }}, {{ season_id }}.</p>
+    <p class="lede">{{ players|length }} players.</p>
 </div>
+
+<form action="/players" method="get" class="search">
+    <select name="competition" onchange="this.form.submit()">
+        {% for c in competitions %}
+        <option value="{{ c.competition_id }}" {% if c.competition_id == competition_id %}selected{% endif %}>{{ c.display_name }}</option>
+        {% endfor %}
+    </select>
+    <select name="season" onchange="this.form.submit()">
+        {% for s in seasons %}
+        <option value="{{ s.season_id }}" {% if s.season_id == season_id %}selected{% endif %}>{{ s.season_id }}</option>
+        {% endfor %}
+    </select>
+</form>
 
 <input type="text" id="filter" placeholder="Filter by name or team..."
        style="width:100%; padding:13px 16px; border-radius:4px; border:1.5px solid var(--border); background:var(--card); color:var(--ink); font-size:1rem; margin-bottom:20px;">
