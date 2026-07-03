@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="hero" style="padding-bottom:0;">
+    <h1>Browse <span>Players</span></h1>
+    <p class="lede">{{ players|length }} players.</p>
+</div>
+
+<div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+    <form action="/players" method="get" class="search" style="margin-bottom:0;">
+        <select name="competition" onchange="this.form.submit()">
+            {% for c in competitions %}
+            <option value="{{ c.competition_id }}" {% if c.competition_id == competition_id %}selected{% endif %}>{{ c.display_name }}</option>
+            {% endfor %}
+        </select>
+        <select name="season" onchange="this.form.submit()">
+            {% for s in seasons %}
+            <option value="{{ s.season_id }}" {% if s.season_id == season_id %}selected{% endif %}>{{ s.season_id }}</option>
+            {% endfor %}
+        </select>
+    </form>
+    {% include "_badge.html" %}
+</div>
+
+<input type="text" id="filter" placeholder="Filter by name or team..."
+       style="width:100%; padding:13px 16px; border-radius:4px; border:1.5px solid var(--border); background:var(--card); color:var(--ink); font-size:1rem; margin-bottom:20px;">
+
+<div class="card" style="padding:0; overflow:hidden;">
+    <table class="browse" id="player-table" style="margin:0;">
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Team</th>
+                <th>Pos</th>
+                <th>Min</th>
+                <th>Gls</th>
+                <th>Ast</th>
+                <th>Market Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in players %}
+            <tr class="player-row" data-search="{{ (p.canonical_name ~ ' ' ~ (p.last_team_hint or '')) | lower }}">
+                <td><a href="/report/{{ p.player_id }}?competition={{ competition_id }}&season={{ season_id }}">{{ p.canonical_name }}</a></td>
+                <td>{{ p.last_team_hint or "-" }}</td>
+                <td>{{ p.primary_position or "-" }}</td>
+                <td class="stat-value">{{ p.minutes if p.minutes is not none else "-" }}</td>
+                <td class="stat-value">{{ p.goals if p.goals is not none else "-" }}</td>
+                <td class="stat-value">{{ p.assists if p.assists is not none else "-" }}</td>
+                <td class="stat-value">{{ "EUR %.1fm"|format(p.market_value_eur / 1000000) if p.market_value_eur else "-" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    const filterInput = document.getElementById('filter');
+    const rows = document.querySelectorAll('#player-table .player-row');
+    filterInput.addEventListener('input', () => {
+        const q = filterInput.value.toLowerCase();
+        rows.forEach(row => {
+            row.style.display = row.dataset.search.includes(q) ? '' : 'none';
+        });
+    });
+</script>
+{% endblock %}

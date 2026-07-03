@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="hero hero-2col">
+    <div>
+        <h1>Scouting<span>Reports</span></h1>
+        <p class="lede">Player scouting data pulled from FBref, Understat, Transfermarkt, and SofaScore &mdash; merged, cross-checked, and turned into a full player dashboard. Use the search bar above to find a player.</p>
+        <p style="color:var(--muted); font-size: 0.9rem;">
+            Search finds a player's current season by default &mdash; you can switch seasons once you're on their profile.
+        </p>
+        <p style="color:var(--muted); font-size: 0.9rem;">
+            {{ players|length }} players available &middot; or <a href="/players">browse the full list</a>.
+        </p>
+    </div>
+
+    <div class="stat-highlight">
+        <div class="item">
+            <div class="num">{{ summary.player_count or "-" }}</div>
+            <div class="lbl">Players Tracked</div>
+        </div>
+        <div class="item">
+            <div class="num">{{ summary.total_goals or "-" }}</div>
+            <div class="lbl">Goals This Season</div>
+        </div>
+        <div class="item">
+            <div class="num">{{ summary.source_count or "-" }}</div>
+            <div class="lbl">Data Sources</div>
+        </div>
+        <div class="item">
+            <div class="num">{{ ("EUR " ~ summary.top_value_m ~ "m") if summary.top_value_m else "-" }}</div>
+            <div class="lbl">Highest Valuation</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

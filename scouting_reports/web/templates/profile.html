@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block topbar_extra %}
+{% if available_seasons %}
+<select onchange="window.location.href=this.value">
+    {% for s in available_seasons %}
+    <option value="/report/{{ player_id }}?competition={{ s.competition_id }}&season={{ s.season_id }}"
+            {% if s.season_id == current_season_id %}selected{% endif %}>{{ s.season_id }}</option>
+    {% endfor %}
+</select>
+{% endif %}
+{% endblock %}
+{% block content %}
+{% if error %}
+    <p class="error" style="margin-top:24px;">{{ error }}</p>
+    <a class="back-link" href="/">&larr; back to search</a>
+{% else %}
+
+<!-- Row 1: bio | radar | match rating | position (4 across, like the reference) -->
+<div style="display:grid; grid-template-columns: 1.3fr 1fr 0.7fr 0.8fr; gap:16px; align-items:start;">
+    <div class="card">
+        <div style="display:flex; gap:16px; align-items:center;">
+            {% if profile.bio.photo_url %}
+            <img src="{{ profile.bio.photo_url }}" alt="{{ profile.player_name }}"
+                 style="width:84px; height:84px; border-radius:8px; object-fit:cover; border:2px solid var(--accent); flex-shrink:0;">
+            {% else %}
+            <div style="width:84px; height:84px; border-radius:8px; background:var(--card-alt); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:700; color:var(--accent); flex-shrink:0;">
+                {{ profile.player_name[0] }}
+            </div>
+            {% endif %}
+            <div>
+                <h1 style="margin:0 0 4px; font-size:1.3rem; text-transform:none; letter-spacing:0;">{{ profile.player_name }}</h1>
+                <div style="color:var(--muted); font-size:0.82rem;">{{ profile.team }} &middot; {{ profile.position or "Unknown" }}{% if profile.bio.age %} &middot; {{ profile.bio.age }} yrs{% endif %}</div>
+                <div style="color:var(--muted); font-size:0.78rem; margin-top:2px;">
+                    {% if profile.bio.nationality %}{{ profile.bio.nationality }} &middot; {% endif %}
+                    {% if profile.bio.height_cm %}{{ profile.bio.height_cm }}cm &middot; {% endif %}
+                    {% if profile.bio.preferred_foot %}{{ profile.bio.preferred_foot | capitalize }} Foot{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:6px; margin-top:16px;">
+            <div style="text-align:center; background:var(--card-alt); border-radius:6px; padding:8px 4px;">
+                <div class="stat-value" style="font-size:1.1rem;">{{ profile.appearances if profile.appearances is not none else "&mdash;" | safe }}</div>
+                <div style="color:var(--muted); font-size:0.62rem; text-transform:uppercase;">Apps</div>
+            </div>
+            <div style="text-align:center; background:var(--card-alt); border-radius:6px; padding:8px 4px;">
+                <div class="stat-value" style="font-size:1.1rem;">{{ profile.starts if profile.starts is not none else "&mdash;" | safe }}</div>
+                <div style="color:var(--muted); font-size:0.62rem; text-transform:uppercase;">Starts</div>
+            </div>
+            <div style="text-align:center; background:var(--card-alt); border-radius:6px; padding:8px 4px;">
+                <div class="stat-value" style="font-size:1.1rem;">{{ profile.goals if profile.goals is not none else "&mdash;" | safe }}</div>
+                <div style="color:var(--muted); font-size:0.62rem; text-transform:uppercase;">Goals</div>
+            </div>
+            <div style="text-align:center; background:var(--card-alt); border-radius:6px; padding:8px 4px;">
+                <div class="stat-value" style="font-size:1.1rem;">{{ profile.assists if profile.assists is not none else "&mdash;" | safe }}</div>
+                <div style="color:var(--muted); font-size:0.62rem; text-transform:uppercase;">Assists</div>
+            </div>
+            <div style="text-align:center; background:var(--card-alt); border-radius:6px; padding:8px 4px;">
+                <div class="stat-value" style="font-size:1.1rem;">{{ profile.minutes if profile.minutes is not none else "&mdash;" | safe }}</div>
+                <div style="color:var(--muted); font-size:0.62rem; text-transform:uppercase;">Mins</div>
+            </div>
+        </div>
+
+        <h2>Player Info</h2>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px 16px; font-size:0.85rem;">
+            <div><strong>Born</strong><br>{{ profile.bio.date_of_birth or "Unknown" }}</div>
+            <div><strong>Contract</strong><br>{{ profile.bio.contract_expires or "Unknown" }}</div>
+            <div><strong>Caps</strong><br>{{ profile.bio.international_caps if profile.bio.international_caps is not none else "Unknown" }}</div>
+            <div><strong>Int'l Goals</strong><br>{{ profile.bio.international_goals if profile.bio.international_goals is not none else "Unknown" }}</div>
+        </div>
+
+        <h2>Data Sources</h2>
+        <div class="source-links" style="display:flex; flex-wrap:wrap; gap:8px;">
+            {% for link in source_links %}
+            <a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }} &#8599;</a>
+            {% endfor %}
+        </div>
+        <a href="/compare?player_a={{ profile.player_name | urlencode }}&competition={{ request.args.get('competition', '') }}&season={{ profile.season }}"
+           style="display:block; text-align:center; margin-top:14px; padding:10px; border:1px solid var(--accent); border-radius:4px; color:var(--accent-dim); font-weight:700; text-transform:uppercase; font-size:0.75rem; letter-spacing:0.4px;">
+           Compare vs. Another Player
+        </a>
+    </div>
+
+    <div class="card" style="text-align:center;">
+        <h2 style="margin-top:0;">Percentile Radar</h2>
+        {% if profile.radar_svg %}
+        <div style="max-width:240px; margin:0 auto;">{{ profile.radar_svg | safe }}</div>
+        {% else %}
+        <div class="unavailable">No radar data for this player.</div>
+        {% endif %}
+    </div>
+
+    <div class="card" style="text-align:center;">
+        <h2 style="margin-top:0;">Match Rating</h2>
+        {% if profile.match_rating %}
+        <div style="border-left:4px solid var(--accent); background:var(--card-alt); border-radius:6px; padding:16px 10px; text-align:left;">
+            <div style="font-size:2.2rem; font-weight:800; color:var(--accent-dim); line-height:1;">{{ "%.1f"|format(profile.match_rating) }}</div>
+            <div style="color:var(--muted); font-size:0.72rem; text-transform:uppercase; margin-top:6px;">SofaScore Average</div>
+            {% if profile.match_rating_percentile %}
+            <div style="color:var(--ink); font-size:0.78rem; margin-top:6px; font-weight:600;">
+                {{ (profile.match_rating_percentile * 100) | round | int }}th percentile &middot; {{ profile.position_group }}s
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="unavailable" style="min-height:140px;">No SofaScore match rating for this player (not matched in the last ingest batch).</div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top:0;">Position</h2>
+        {% include "_pitch.html" %}
+        <div style="color:var(--muted); font-size:0.72rem; text-align:center; margin-top:8px;">
+            No heatmap data (needs per-match touch locations).
+        </div>
+    </div>
+</div>
+
+<!-- Row 2: 4-across category grid -->
+<div class="card" style="margin-top:16px;">
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:24px;">
+        {% for cat_title, cat_stats in profile.categories.items() %}
+        <div>
+            <div style="font-weight:700; font-size:0.85rem; margin-bottom:10px; display:flex; justify-content:space-between;">
+                <span>{{ cat_title }}</span>
+                <span style="color:var(--muted); font-weight:400; font-size:0.7rem;">Per 90</span>
+            </div>
+            {% for stat in cat_stats %}
+            <div style="margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:3px;">
+                    <span style="color:var(--muted);">{{ stat.label }}</span>
+                    <span class="stat-value">{{ stat.value if stat.value is not none else "&mdash;" | safe }}</span>
+                </div>
+                {% if stat.bar_percentile is not none %}
+                <div style="background:var(--border); border-radius:3px; height:6px; overflow:hidden;">
+                    <div style="background:var(--accent); height:100%; width:{{ (stat.bar_percentile * 100) | round | int }}%;"></div>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Row 3: four equal event-data panels, matching the reference's row-of-4 -->
+<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; margin-top:16px;">
+    <div class="card">
+        <h2 style="margin-top:0;">Shot Map</h2>
+        {% include "_pitch.html" %}
+        <div style="color:var(--muted); font-size:0.7rem; margin-top:8px;">Needs per-shot coordinates.</div>
+    </div>
+    <div class="card">
+        <h2 style="margin-top:0;">Pass Map</h2>
+        {% include "_pitch.html" %}
+        <div style="color:var(--muted); font-size:0.7rem; margin-top:8px;">Needs per-pass event data with coordinates.</div>
+    </div>
+    <div class="card">
+        <h2 style="margin-top:0;">Passes into Final Third</h2>
+        {% include "_pitch.html" %}
+        <div style="color:var(--muted); font-size:0.7rem; margin-top:8px;">Needs zone-tagged pass events.</div>
+    </div>
+    <div class="card">
+        <h2 style="margin-top:0;">Progressive Actions</h2>
+        {% include "_pitch.html" %}
+        <div style="color:var(--muted); font-size:0.7rem; margin-top:8px;">Needs per-action location data.</div>
+    </div>
+</div>
+
+<!-- Row 4: Recent Form + Season Averages -->
+<div class="card" style="margin-top:16px;">
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:24px;">
+        <div>
+            <h2 style="margin-top:0;">Recent Form (Last 8 Matches)</h2>
+            <div class="unavailable">Needs per-match ratings, not just season totals. SofaScore currently rate-limited after the full-league batch -- revisit later.</div>
+        </div>
+        <div>
+            <h2 style="margin-top:0;">Season Averages</h2>
+            <div class="unavailable">Multi-competition breakdown (league/cup/Europe) needs querying each competition separately -- not yet built.</div>
+        </div>
+    </div>
+</div>
+
+<!-- Scout's Summary + Full Statistics -->
+<div class="card" style="margin-top:16px;">
+    <h2 style="margin-top:0;">Scout's Summary</h2>
+    {% for title, text in profile.sections.items() %}
+    <p><strong>{{ title }}:</strong> {{ text }}</p>
+    {% endfor %}
+
+    <h2>Full Statistics</h2>
+    <table style="width:100%; border-collapse:collapse;">
+        {% for stat in profile.stats %}
+        <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:9px 4px; width:34%; color:var(--muted);">{{ stat.label }}</td>
+            <td class="stat-value" style="padding:9px 4px; width:14%; white-space:nowrap;">{{ stat.display if stat.display is not none else "&mdash;" | safe }}</td>
+            <td style="padding:9px 4px;">
+                {% if stat.bar_percentile is not none %}
+                <div style="background:var(--border); border-radius:3px; height:8px; overflow:hidden;">
+                    <div style="background:var(--accent); height:100%; width:{{ (stat.bar_percentile * 100) | round | int }}%;"></div>
+                </div>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <hr>
+    <em>Sources: {{ profile.sources_line }}. Data as of {{ profile.as_of_date }}. {{ profile.tier_caveat }}</em>
+</div>
+
+<!-- Bottom comparison bar: compact horizontal filters + percentile chips -->
+<div class="card" style="margin-top:16px;">
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:14px 28px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:var(--muted); font-size:0.75rem;">Compared to</span>
+            <select disabled style="padding:6px 10px; font-size:0.8rem;"><option>{{ profile.comparison_context.position_group }}s</option></select>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:var(--muted); font-size:0.75rem;">in</span>
+            <select disabled style="padding:6px 10px; font-size:0.8rem;"><option>{{ profile.comparison_context.competition_name }}</option></select>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:var(--muted); font-size:0.75rem;">Minimum minutes</span>
+            <select disabled style="padding:6px 10px; font-size:0.8rem;"><option>{{ profile.comparison_context.min_minutes }}</option></select>
+        </div>
+        <div style="flex:1;"></div>
+        {% for chip in profile.highlight_chips %}
+        {% set p = (chip.percentile * 100) | round | int %}
+        <div style="text-align:center;">
+            <div class="stat-value" style="font-size:1.2rem; color:var(--accent-dim);">
+                {{ p }}<span style="font-size:0.65rem;">{% if p % 10 == 1 and p != 11 %}st{% elif p % 10 == 2 and p != 12 %}nd{% elif p % 10 == 3 and p != 13 %}rd{% else %}th{% endif %}</span>
+            </div>
+            <div style="color:var(--muted); font-size:0.65rem; text-transform:uppercase;">{{ chip.label }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    <p style="color:var(--muted); font-size:0.72rem; margin-top:14px; margin-bottom:0;">
+        Percentiles compare this player to others at the same position, in the same competition, with at least the minimum minutes shown. Filters reflect the actual methodology used but aren't interactively adjustable yet.
+    </p>
+</div>
+
+<a class="back-link" href="/">&larr; back to search</a>
+{% endif %}
+{% endblock %}

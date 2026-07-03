@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+{% if matches|length == 0 %}
+    <p>No player found matching "<strong>{{ query }}</strong>".</p>
+{% else %}
+    <p>Multiple players match "<strong>{{ query }}</strong>" &mdash; pick one:</p>
+    <ul class="results">
+        {% for m in matches %}
+        <li><a href="/report/{{ m.player_id }}?competition={{ competition_id }}&season={{ season_id }}">
+            {{ m.canonical_name }} ({{ m.last_team_hint }})
+        </a></li>
+        {% endfor %}
+    </ul>
+{% endif %}
+<a class="back-link" href="/">&larr; back to search</a>
+{% endblock %}
