@@ -24,7 +24,7 @@ from scouting_reports.reports.selectors import (
     market_value_selection,
     shot_volume_selection,
 )
-from scouting_reports.stats.percentiles import percentile, position_group
+from scouting_reports.stats.percentiles import MIN_MINUTES_FOR_PERCENTILE, percentile, position_group
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 
@@ -286,6 +286,28 @@ def build_player_profile(conn: sqlite3.Connection, player_id: int, competition_i
         for title, fields in category_source.items()
     }
 
+    # Bottom comparison bar: a handful of headline percentiles, computed the same way as
+    # everywhere else (real cohort-based percentile(), not a fabricated "rank out of N").
+    highlight_columns = (
+        [("Save %", "save_pct"), ("Clean Sheet %", "clean_sheet_pct"), ("Match Rating", "sofascore_rating")]
+        if is_goalkeeper
+        else [
+            ("Goals", "goals"), ("xG", "xg"), ("Assists", "assists"), ("Key Passes", "key_passes"),
+            ("Interceptions", "interceptions"), ("Duels Won %", "duels_won_pct"), ("Match Rating", "sofascore_rating"),
+        ]
+    )
+    highlight_chips = []
+    for label, column in highlight_columns:
+        pct = percentile(conn, player_id, season_id, competition_id, column) if row[column] is not None else None
+        if pct is not None:
+            highlight_chips.append({"label": label, "percentile": pct})
+
+    comparison_context = {
+        "position_group": position_group(row["primary_position"]),
+        "competition_name": competition["display_name"] if competition else competition_id,
+        "min_minutes": MIN_MINUTES_FOR_PERCENTILE,
+    }
+
     sources = conn.execute(
         "SELECT DISTINCT source, MAX(fetched_at) as latest FROM stats_snapshot WHERE player_id = ? GROUP BY source",
         (player_id,),
@@ -311,6 +333,7 @@ def build_player_profile(conn: sqlite3.Connection, player_id: int, competition_i
         "goals": row["goals"],
         "assists": row["assists"],
         "match_rating": row["sofascore_rating"],
+        "match_rating_percentile": percentile(conn, player_id, season_id, competition_id, "sofascore_rating") if row["sofascore_rating"] is not None else None,
         "bio": {
             "date_of_birth": row["date_of_birth"],
             "age": _age(row["date_of_birth"]),
@@ -325,6 +348,8 @@ def build_player_profile(conn: sqlite3.Connection, player_id: int, competition_i
         "sections": sections,
         "stats": stats,
         "categories": categories,
+        "highlight_chips": highlight_chips,
+        "comparison_context": comparison_context,
         "radar": radar,
         "radar_svg": build_radar_svg(radar),
         "sources_line": sources_line,

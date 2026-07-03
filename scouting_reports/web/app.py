@@ -186,10 +186,11 @@ def players_list():
 @app.route("/search")
 def search():
     player_query = request.args.get("player", "").strip()
-    competition_id = request.args.get("competition", "")
-    season_id = request.args.get("season", "")
-
     conn = get_connection()
+    default = _default_competition_season(conn)
+    competition_id = request.args.get("competition") or (default["competition_id"] if default else "")
+    season_id = request.args.get("season") or (default["season_id"] if default else "")
+
     matches = conn.execute(
         """SELECT DISTINCT p.player_id, p.canonical_name, p.last_team_hint
            FROM player p JOIN player_season_stat_flat f ON f.player_id = p.player_id

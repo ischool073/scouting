@@ -3,21 +3,7 @@
 <div class="hero hero-2col">
     <div>
         <h1>Scouting<span>Reports</span></h1>
-        <p class="lede">Player scouting data pulled from FBref, Understat, and Transfermarkt &mdash; merged, cross-checked, and turned into a full player profile in one search.</p>
-
-        <form action="/search" method="get" class="search">
-            <input type="text" name="player" list="player-names" placeholder="Search a player, e.g. Salah" autofocus required>
-            <input type="hidden" name="competition" value="{{ default.competition_id if default else '' }}">
-            <input type="hidden" name="season" value="{{ default.season_id if default else '' }}">
-            <button type="submit">Search</button>
-        </form>
-
-        <datalist id="player-names">
-            {% for p in players %}
-            <option value="{{ p.canonical_name }}">{{ p.canonical_name }} ({{ p.last_team_hint }})</option>
-            {% endfor %}
-        </datalist>
-
+        <p class="lede">Player scouting data pulled from FBref, Understat, Transfermarkt, and SofaScore &mdash; merged, cross-checked, and turned into a full player dashboard. Use the search bar above to find a player.</p>
         <p style="color:var(--muted); font-size: 0.9rem;">
             Search finds a player's current season by default &mdash; you can switch seasons once you're on their profile.
         </p>
